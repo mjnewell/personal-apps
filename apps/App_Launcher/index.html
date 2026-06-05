@@ -325,20 +325,11 @@ async function initApp(){
     return;
   }
   
-  window.APP_DATA={user,apps:dbApps||[]};
-  window.DB_SAVE=async(apps)=>{
-    for(let i=0;i<apps.length;i++){
-      apps[i].user_id=user.id;
-      if(!apps[i].id)apps[i].id=crypto.randomUUID();
-      apps[i].order_idx=i;
-      if(apps[i].deleted){
-        await sb.from('launcher_apps').delete().eq('id',apps[i].id);
-      }else{
-        delete apps[i].deleted;
-        await sb.from('launcher_apps').upsert(apps[i]);
-      }
-    }
-  };
+  // Load data from Supabase into the app
+  items = dbApps || [];
+  
+  // Render the UI
+  render();
 }
 
 checkAuth();
