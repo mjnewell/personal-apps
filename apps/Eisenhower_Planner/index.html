@@ -1,100 +1,4 @@
 <!DOCTYPE html>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
-const SUPABASE_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let isSignUp=false;
-
-document.addEventListener('DOMContentLoaded',async()=>{
-  const{data:{session}}=await sb.auth.getSession();
-  if(!session){showAuth();}
-});
-
-// Migrate localStorage data to Supabase on first load
-async function migrateLocalStorage(){
-  try{
-    const{data:{user}}=await sb.auth.getUser();
-    if(!user)return;
-    
-    const localTasks=localStorage.getItem('tasks');
-    if(localTasks){
-      const tasks=JSON.parse(localTasks);
-      for(let t of tasks){
-        t.user_id=user.id;
-        if(!t.id)t.id=crypto.randomUUID();
-        delete t.deleted;
-        await sb.from('tasks').upsert(t);
-      }
-      console.log('✓ Migrated '+tasks.length+' tasks to Supabase');
-    }
-  }catch(e){
-    console.error('Migration failed:',e);
-  }
-}
-
-function addLogoutBtn(){
-  const btn=document.createElement('button');
-  btn.textContent='Logout';
-  btn.style.cssText='position:fixed;top:16px;right:16px;padding:8px 16px;background:#c0492f;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;z-index:1000';
-  btn.addEventListener('click',async()=>{await sb.auth.signOut();location.reload();});
-  document.body.appendChild(btn);
-}
-
-document.documentElement.style.display='none';
-(async()=>{
-  try{
-    const{data:{session}}=await sb.auth.getSession();
-    if(!session){
-      showAuth();
-      return;
-    }
-  }catch(e){console.error('Auth check failed:',e);}
-  document.documentElement.style.display='block';
-  addLogoutBtn();
-})();
-
-function showAuth(){
-  const html=`<div id="auth-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)"><div style="background:#f4f1ea;border-radius:12px;padding:40px;max-width:360px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3)"><h1 style="margin-bottom:12px;font-size:24px;font-weight:600;color:#23211c">Sign In</h1><p style="color:#6f6a5f;margin-bottom:20px;font-size:14px">Access your tasks</p><form id="auth-form" style="display:flex;flex-direction:column;gap:12px"><input id="email" type="email" placeholder="Email" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px;font-size:14px;font-family:inherit"><input id="password" type="password" placeholder="Password" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px;font-size:14px;font-family:inherit"><button type="submit" style="padding:12px;background:#23211c;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.15s">Sign In</button><button type="button" id="signup-btn" style="padding:12px;background:transparent;color:#2f7d5b;border:1px solid #e0dbcf;border-radius:8px;font-weight:600;cursor:pointer">Create Account</button><div id="error" style="color:#c0492f;font-size:13px;min-height:20px"></div></form></div></div>`;
-  document.body.insertAdjacentHTML('beforeend',html);
-  
-  document.getElementById('auth-form').addEventListener('submit',async(e)=>{
-    e.preventDefault();
-    const email=document.getElementById('email').value;
-    const password=document.getElementById('password').value;
-    const error=document.getElementById('error');
-    const btn=e.target.querySelector('button[type="submit"]');
-    btn.style.opacity='0.6';
-    
-    try{
-      if(isSignUp){
-        const{error:err}=await sb.auth.signUp({email,password});
-        if(err)throw err;
-        error.style.color='#2f7d5b';
-        error.textContent='Account created! Sign in now.';
-        isSignUp=false;
-        document.getElementById('signup-btn').textContent='Create Account';
-      }else{
-        const{error:err}=await sb.auth.signInWithPassword({email,password});
-        if(err)throw err;
-        await migrateLocalStorage();
-        document.getElementById('auth-overlay').remove();
-        document.documentElement.style.display='block';
-        addLogoutBtn();
-      }
-    }catch(err){
-      error.textContent=err.message;
-    }finally{
-      btn.style.opacity='1';
-    }
-  });
-  
-  document.getElementById('signup-btn').addEventListener('click',()=>{
-    isSignUp=!isSignUp;
-    document.getElementById('signup-btn').textContent=isSignUp?'Back to Sign In':'Create Account';
-  });
-}
-</script>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -103,6 +7,28 @@ function showAuth(){
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)">
+  <div style="background:#f4f1ea;border-radius:12px;padding:40px;max-width:360px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3)">
+    <h1 style="margin-bottom:12px;font-size:24px;font-weight:600;color:#23211c">Eisenhower Planner</h1>
+    <p style="color:#6f6a5f;margin-bottom:20px;font-size:14px">Sign in to access your tasks</p>
+    <form id="login-form" style="display:flex;flex-direction:column;gap:12px">
+      <input id="login-email" type="email" placeholder="Email" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px;font-size:14px;font-family:inherit">
+      <input id="login-password" type="password" placeholder="Password" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px;font-size:14px;font-family:inherit">
+      <button type="submit" style="padding:12px;background:#23211c;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">Sign In</button>
+      <button type="button" id="signup-toggle" style="padding:12px;background:transparent;color:#2f7d5b;border:1px solid #e0dbcf;border-radius:8px;font-weight:600;cursor:pointer">Create Account</button>
+      <div id="login-error" style="color:#c0492f;font-size:13px;min-height:20px"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app-screen" style="display:none">
+  <button id="logout-btn" style="position:fixed;top:16px;right:16px;padding:8px 16px;background:#c0492f;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;z-index:1000">Logout</button>
+  
+  <!-- ORIGINAL APP CONTENT STARTS HERE -->
 <style>
   :root{
     --paper:#f4f1ea;--ink:#23211c;--muted:#6f6a5f;--faint:#a39d90;--card:#fbfaf6;--line:#e0dbcf;
@@ -278,73 +204,13 @@ function showAuth(){
     <div class="pcol"><h4 style="color:var(--drop)">Delete</h4><div id="p-q4"></div></div>
   </div></div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ===== SUPABASE SETUP ===== */
-const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
-const SUPABASE_ANON_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-let USER_ID=null;
-
-async function ensureAuth(){
-  let {data:{session}}=await sb.auth.getSession();
-  if(!session){
-    const {data,error}=await sb.auth.signInAnonymously();
-    if(error)throw error;
-    session=data.session;
-  }
-  USER_ID=session.user.id;
-}
-
-/* ===== DATA LAYER — Supabase backend ===== */
-const db={
-  async load(){
-    if(!USER_ID)await ensureAuth();
-    const {data,error}=await sb.from('tasks').select('*').eq('user_id',USER_ID).order('matrix_rank',{ascending:true});
-    if(error){console.error('load error:',error);return null;}
-    return data.map(r=>({
-      id:r.id,text:r.text,q:r.quadrant==='q2'?('q2c'+(r.channel||1)):r.quadrant,
-      month:r.sched_month,year:r.sched_year,week:r.week,wrank:r.week_rank,
-      done:r.done,createdAt:Date.parse(r.created_at)||Date.now(),completedAt:r.completed_at?Date.parse(r.completed_at):null
-    }));
-  },
-  async save(t){
-    if(!USER_ID)await ensureAuth();
-    const rows=t.map((task,i)=>{
-      const isCh=task.q.startsWith('q2c');
-      return {
-        id:task.id,user_id:USER_ID,text:task.text,
-        quadrant:isCh?'q2':task.q,channel:isCh?Number(task.q.slice(3)):null,
-        sched_month:task.month||null,sched_year:task.year||null,week:task.week||null,
-        week_rank:task.wrank??null,matrix_rank:i,
-        done:!!task.done,completed_at:task.completedAt?new Date(task.completedAt).toISOString():null
-      };
-    });
-    if(rows.length){
-      const {error}=await sb.from('tasks').upsert(rows);
-      if(error)console.error('save error:',error);
-    }
-    const ids=t.map(x=>x.id);
-    if(ids.length){
-      const {error:delErr}=await sb.from('tasks').delete().eq('user_id',USER_ID).not('id','in',`(${ids.map(id=>`'${id}'`).join(',')})`);
-      if(delErr)console.error('prune error:',delErr);
-    }
-  },
-  async loadCh(){
-    if(!USER_ID)await ensureAuth();
-    const out={c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
-    const {data,error}=await sb.from('channels').select('*').eq('user_id',USER_ID);
-    if(error){console.error('loadCh error:',error);return out;}
-    (data||[]).forEach(r=>{out['c'+r.slot]=r.label||out['c'+r.slot];});
-    return out;
-  },
-  async saveCh(s){
-    if(!USER_ID)await ensureAuth();
-    const rows=[1,2,3].map(slot=>({user_id:USER_ID,slot,label:s['c'+slot]||''}));
-    const {error}=await sb.from('channels').upsert(rows);
-    if(error)console.error('saveCh error:',error);
-  }
-};
+/* ===== DATA LAYER — swap internals for Supabase (methods already async) ===== */
+const db={KEY:'eisen_v8',SKEY:'eisen_ch_v8',_m:[],_s:{},
+  async load(){try{const r=localStorage.getItem(this.KEY);return r?JSON.parse(r):null;}catch{return this._m.length?this._m:null;}},
+  async save(t){this._m=t;try{localStorage.setItem(this.KEY,JSON.stringify(t));}catch{}},                 // SUPABASE upsert
+  async loadCh(){try{const r=localStorage.getItem(this.SKEY);return r?JSON.parse(r):{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};}catch{return this._s;}},
+  async saveCh(s){this._s=s;try{localStorage.setItem(this.SKEY,JSON.stringify(s));}catch{}}};
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -369,7 +235,6 @@ function seed(){return [
 ];}
 
 async function init(){
-  await ensureAuth();
   const loaded=await db.load(); tasks = loaded || seed(); if(!loaded) await persist();
   const ch=await db.loadCh(); document.querySelectorAll('.chlab').forEach(e=>e.value=ch[e.dataset.ch]||e.value);
   document.getElementById('mastMo').textContent=FULL[CURMONTH-1];
@@ -498,5 +363,98 @@ document.getElementById('addBtn').onclick=()=>{addTask(input.value);input.value=
 input.addEventListener('keydown',e=>{if(e.key==='Enter'){addTask(input.value);input.value='';}});
 init();
 </script>
+</body>
+</html>
+</div>
+
+<script>
+const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
+const SUPABASE_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+let isSignUp=false;
+
+// === AUTH SETUP ===
+async function checkAuth(){
+  const{data:{session}}=await sb.auth.getSession();
+  if(!session){
+    document.getElementById('login-screen').style.display='flex';
+    document.getElementById('app-screen').style.display='none';
+  }else{
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-screen').style.display='block';
+    initApp();
+  }
+}
+
+document.getElementById('login-form').addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  const email=document.getElementById('login-email').value;
+  const password=document.getElementById('login-password').value;
+  const error=document.getElementById('login-error');
+  const btn=e.target.querySelector('button[type="submit"]');
+  btn.style.opacity='0.6';
+  
+  try{
+    if(isSignUp){
+      const{error:err}=await sb.auth.signUp({email,password});
+      if(err)throw err;
+      error.style.color='#2f7d5b';
+      error.textContent='Account created! Sign in now.';
+      isSignUp=false;
+      document.getElementById('signup-toggle').textContent='Create Account';
+    }else{
+      const{error:err}=await sb.auth.signInWithPassword({email,password});
+      if(err)throw err;
+      checkAuth();
+    }
+  }catch(err){
+    error.textContent=err.message;
+  }finally{
+    btn.style.opacity='1';
+  }
+});
+
+document.getElementById('signup-toggle').addEventListener('click',()=>{
+  isSignUp=!isSignUp;
+  document.getElementById('signup-toggle').textContent=isSignUp?'Back to Sign In':'Create Account';
+});
+
+document.getElementById('logout-btn').addEventListener('click',async()=>{
+  await sb.auth.signOut();
+  location.reload();
+});
+
+// === APP INITIALIZATION ===
+async function initApp(){
+  const{data:{user}}=await sb.auth.getUser();
+  if(!user)return;
+  
+  // Load tasks from Supabase
+  const{data:dbTasks,error}=await sb.from('tasks').select('*').eq('user_id',user.id).order('matrix_rank');
+  if(error){
+    console.error('Load error:',error);
+    return;
+  }
+  
+  // Store in window for the original app to use
+  window.APP_DATA={user,tasks:dbTasks||[]};
+  window.DB_SAVE=async(tasks)=>{
+    for(let t of tasks){
+      t.user_id=user.id;
+      if(!t.id)t.id=crypto.randomUUID();
+      if(t.deleted){
+        await sb.from('tasks').delete().eq('id',t.id);
+      }else{
+        delete t.deleted;
+        await sb.from('tasks').upsert(t);
+      }
+    }
+  };
+}
+
+checkAuth();
+</script>
+
 </body>
 </html>
