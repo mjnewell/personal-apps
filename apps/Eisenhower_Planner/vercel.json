@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
-  "outputDirectory": ".next",
-  "installCommand": "npm install"
+  "buildCommand": "echo 'Static HTML only'",
+  "outputDirectory": "public",
+  "installCommand": "echo 'No install needed'"
 }
