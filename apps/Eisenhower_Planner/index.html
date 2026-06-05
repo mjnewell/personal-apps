@@ -182,73 +182,13 @@
     <div class="pcol"><h4 style="color:var(--drop)">Delete</h4><div id="p-q4"></div></div>
   </div></div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ===== SUPABASE SETUP ===== */
-const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
-const SUPABASE_ANON_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_ANON_KEY);
-let USER_ID=null;
-
-async function ensureAuth(){
-  let {data:{session}}=await sb.auth.getSession();
-  if(!session){
-    const {data,error}=await sb.auth.signInAnonymously();
-    if(error)throw error;
-    session=data.session;
-  }
-  USER_ID=session.user.id;
-}
-
-/* ===== DATA LAYER — Supabase backend ===== */
-const db={
-  async load(){
-    if(!USER_ID)await ensureAuth();
-    const {data,error}=await sb.from('tasks').select('*').eq('user_id',USER_ID).order('matrix_rank',{ascending:true});
-    if(error){console.error('load error:',error);return null;}
-    return data.map(r=>({
-      id:r.id,text:r.text,q:r.quadrant==='q2'?('q2c'+(r.channel||1)):r.quadrant,
-      month:r.sched_month,year:r.sched_year,week:r.week,wrank:r.week_rank,
-      done:r.done,createdAt:Date.parse(r.created_at)||Date.now(),completedAt:r.completed_at?Date.parse(r.completed_at):null
-    }));
-  },
-  async save(t){
-    if(!USER_ID)await ensureAuth();
-    const rows=t.map((task,i)=>{
-      const isCh=task.q.startsWith('q2c');
-      return {
-        id:task.id,user_id:USER_ID,text:task.text,
-        quadrant:isCh?'q2':task.q,channel:isCh?Number(task.q.slice(3)):null,
-        sched_month:task.month||null,sched_year:task.year||null,week:task.week||null,
-        week_rank:task.wrank??null,matrix_rank:i,
-        done:!!task.done,completed_at:task.completedAt?new Date(task.completedAt).toISOString():null
-      };
-    });
-    if(rows.length){
-      const {error}=await sb.from('tasks').upsert(rows);
-      if(error)console.error('save error:',error);
-    }
-    const ids=t.map(x=>x.id);
-    if(ids.length){
-      const {error:delErr}=await sb.from('tasks').delete().eq('user_id',USER_ID).not('id','in',`(${ids.map(id=>`'${id}'`).join(',')})`);
-      if(delErr)console.error('prune error:',delErr);
-    }
-  },
-  async loadCh(){
-    if(!USER_ID)await ensureAuth();
-    const out={c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
-    const {data,error}=await sb.from('channels').select('*').eq('user_id',USER_ID);
-    if(error){console.error('loadCh error:',error);return out;}
-    (data||[]).forEach(r=>{out['c'+r.slot]=r.label||out['c'+r.slot];});
-    return out;
-  },
-  async saveCh(s){
-    if(!USER_ID)await ensureAuth();
-    const rows=[1,2,3].map(slot=>({user_id:USER_ID,slot,label:s['c'+slot]||''}));
-    const {error}=await sb.from('channels').upsert(rows);
-    if(error)console.error('saveCh error:',error);
-  }
-};
+/* ===== DATA LAYER — swap internals for Supabase (methods already async) ===== */
+const db={KEY:'eisen_v8',SKEY:'eisen_ch_v8',_m:[],_s:{},
+  async load(){try{const r=localStorage.getItem(this.KEY);return r?JSON.parse(r):null;}catch{return this._m.length?this._m:null;}},
+  async save(t){this._m=t;try{localStorage.setItem(this.KEY,JSON.stringify(t));}catch{}},                 // SUPABASE upsert
+  async loadCh(){try{const r=localStorage.getItem(this.SKEY);return r?JSON.parse(r):{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};}catch{return this._s;}},
+  async saveCh(s){this._s=s;try{localStorage.setItem(this.SKEY,JSON.stringify(s));}catch{}}};
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -273,7 +213,6 @@ function seed(){return [
 ];}
 
 async function init(){
-  await ensureAuth();
   const loaded=await db.load(); tasks = loaded || seed(); if(!loaded) await persist();
   const ch=await db.loadCh(); document.querySelectorAll('.chlab').forEach(e=>e.value=ch[e.dataset.ch]||e.value);
   document.getElementById('mastMo').textContent=FULL[CURMONTH-1];
