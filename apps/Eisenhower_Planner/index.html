@@ -7,28 +7,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,900&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body>
-
-<div id="login-screen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)">
-  <div style="background:#f4f1ea;border-radius:12px;padding:40px;max-width:360px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3)">
-    <h1 style="margin-bottom:12px;font-size:24px;font-weight:600;color:#23211c">Eisenhower Planner</h1>
-    <p style="color:#6f6a5f;margin-bottom:20px;font-size:14px">Sign in to access your tasks</p>
-    <form id="login-form" style="display:flex;flex-direction:column;gap:12px">
-      <input id="login-email" type="email" placeholder="Email" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px;font-size:14px;font-family:inherit">
-      <input id="login-password" type="password" placeholder="Password" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px;font-size:14px;font-family:inherit">
-      <button type="submit" style="padding:12px;background:#23211c;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">Sign In</button>
-      <button type="button" id="signup-toggle" style="padding:12px;background:transparent;color:#2f7d5b;border:1px solid #e0dbcf;border-radius:8px;font-weight:600;cursor:pointer">Create Account</button>
-      <div id="login-error" style="color:#c0492f;font-size:13px;min-height:20px"></div>
-    </form>
-  </div>
-</div>
-
-<div id="app-screen" style="display:none">
-  <button id="logout-btn" style="position:fixed;top:16px;right:16px;padding:8px 16px;background:#c0492f;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;z-index:1000">Logout</button>
-  
-  <!-- ORIGINAL APP CONTENT STARTS HERE -->
 <style>
   :root{
     --paper:#f4f1ea;--ink:#23211c;--muted:#6f6a5f;--faint:#a39d90;--card:#fbfaf6;--line:#e0dbcf;
@@ -148,6 +126,21 @@
 </style>
 </head>
 <body>
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999">
+  <div style="background:#f4f1ea;border-radius:12px;padding:40px;max-width:360px;width:90%">
+    <h1 style="margin-bottom:12px;font-size:24px;font-weight:600">Eisenhower Planner</h1>
+    <form id="login-form" style="display:flex;flex-direction:column;gap:12px">
+      <input id="login-email" type="email" placeholder="Email" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px">
+      <input id="login-password" type="password" placeholder="Password" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px">
+      <button type="submit" style="padding:12px;background:#23211c;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">Sign In</button>
+      <button type="button" id="signup-toggle" style="padding:12px;background:transparent;color:#2f7d5b;border:1px solid #e0dbcf;border-radius:8px;font-weight:600;cursor:pointer">Create Account</button>
+      <div id="login-error" style="color:#c0492f;font-size:13px"></div>
+    </form>
+  </div>
+</div>
+
+<div id="app-screen" style="display:none">
+<button id="logout-btn" style="position:fixed;top:16px;right:16px;padding:8px 16px;background:#c0492f;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;z-index:1000">Logout</button>
 <div class="wrap">
   <div class="masthead">
     <div class="cal"><span class="mo" id="mastMo">—</span><span class="yr" id="mastYr"></span></div>
@@ -204,66 +197,112 @@
     <div class="pcol"><h4 style="color:var(--drop)">Delete</h4><div id="p-q4"></div></div>
   </div></div></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ===== DATA LAYER — swap internals for Supabase (methods already async) ===== */
-const db={KEY:'eisen_v8',SKEY:'eisen_ch_v8',_m:[],_s:{},
+const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
+const SUPABASE_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+// Replace db object with Supabase version
 const db={
   async load(){
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return null;
-      const{data:tasks,error}=await sb.from('tasks').select('*').eq('user_id',user.id).order('matrix_rank');
+      const{data,error}=await sb.from('tasks').select('*').eq('user_id',user.id).order('matrix_rank');
       if(error)throw error;
-      return tasks||null;
-    }catch(e){
-      console.error('Load failed:',e);
-      return null;
-    }
+      return data||null;
+    }catch(e){console.error('Load:',e);return null;}
   },
-  async save(tasks){
+  async save(t){
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return;
-      for(let t of tasks){
-        t.user_id=user.id;
-        if(!t.id)t.id=crypto.randomUUID();
-        if(t.deleted){
-          await sb.from('tasks').delete().eq('id',t.id);
+      for(let task of t){
+        task.user_id=user.id;
+        if(!task.id)task.id=crypto.randomUUID();
+        if(task.deleted){
+          await sb.from('tasks').delete().eq('id',task.id);
         }else{
-          delete t.deleted;
-          await sb.from('tasks').upsert(t);
+          delete task.deleted;
+          await sb.from('tasks').upsert(task);
         }
       }
-    }catch(e){
-      console.error('Save failed:',e);
-    }
+    }catch(e){console.error('Save:',e);}
   },
   async loadCh(){
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
-      const{data:settings,error}=await sb.from('channels').select('*').eq('user_id',user.id).single();
-      if(error||!settings)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
-      return{c1:settings.name1||'Channel 1',c2:settings.name2||'Channel 2',c3:settings.name3||'Channel 3'};
-    }catch(e){
-      return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
-    }
+      const{data:ch,error}=await sb.from('channels').select('*').eq('user_id',user.id).single();
+      if(error)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
+      return{c1:ch?.name1||'Channel 1',c2:ch?.name2||'Channel 2',c3:ch?.name3||'Channel 3'};
+    }catch{return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};}
   },
   async saveCh(s){
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return;
-      const{data:existing}=await sb.from('channels').select('id').eq('user_id',user.id).single();
-      if(existing){
+      const{data:ch}=await sb.from('channels').select('id').eq('user_id',user.id).single();
+      if(ch){
         await sb.from('channels').update({name1:s.c1,name2:s.c2,name3:s.c3}).eq('user_id',user.id);
       }else{
         await sb.from('channels').insert({user_id:user.id,name1:s.c1,name2:s.c2,name3:s.c3});
       }
-    }catch(e){
-      console.error('Channel save failed:',e);
-    }
+    }catch(e){console.error('SaveCh:',e);}
   }
 };
+
+// Auth UI
+let isSignUp=false;
+async function checkAuth(){
+  const{data:{session}}=await sb.auth.getSession();
+  document.getElementById('login-screen').style.display=session?'none':'flex';
+  document.getElementById('app-screen').style.display=session?'block':'none';
+  if(session)init();
+}
+
+document.getElementById('login-form').addEventListener('submit',async(e)=>{
+  e.preventDefault();
+  const email=document.getElementById('login-email').value;
+  const password=document.getElementById('login-password').value;
+  const error=document.getElementById('login-error');
+  try{
+    if(isSignUp){
+      const{error:err}=await sb.auth.signUp({email,password});
+      if(err)throw err;
+      error.style.color='#2f7d5b';
+      error.textContent='Account created! Sign in now.';
+      isSignUp=false;
+      document.getElementById('signup-toggle').textContent='Create Account';
+    }else{
+      const{error:err}=await sb.auth.signInWithPassword({email,password});
+      if(err)throw err;
+      checkAuth();
+    }
+  }catch(err){
+    error.textContent=err.message;
+  }
+});
+
+document.getElementById('signup-toggle').addEventListener('click',()=>{
+  isSignUp=!isSignUp;
+  document.getElementById('signup-toggle').textContent=isSignUp?'Back to Sign In':'Create Account';
+});
+
+document.getElementById('logout-btn').addEventListener('click',async()=>{
+  await sb.auth.signOut();
+  location.reload();
+});
+
+checkAuth();
+</script>
+/* ===== DATA LAYER — swap internals for Supabase (methods already async) ===== */
+const db={KEY:'eisen_v8',SKEY:'eisen_ch_v8',_m:[],_s:{},
+  async load(){try{const r=localStorage.getItem(this.KEY);return r?JSON.parse(r):null;}catch{return this._m.length?this._m:null;}},
+  async save(t){this._m=t;try{localStorage.setItem(this.KEY,JSON.stringify(t));}catch{}},                 // SUPABASE upsert
+  async loadCh(){try{const r=localStorage.getItem(this.SKEY);return r?JSON.parse(r):{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};}catch{return this._s;}},
+  async saveCh(s){this._s=s;try{localStorage.setItem(this.SKEY,JSON.stringify(s));}catch{}}};
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -414,81 +453,8 @@ document.getElementById('closePast').onclick=()=>document.getElementById('overla
 const input=document.getElementById('taskInput');
 document.getElementById('addBtn').onclick=()=>{addTask(input.value);input.value='';input.focus();};
 input.addEventListener('keydown',e=>{if(e.key==='Enter'){addTask(input.value);input.value='';}});
-// Don't call init here - call it after Supabase auth is ready (in initApp)
+init();
 </script>
-</body>
-</html>
 </div>
-
-<script>
-const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
-const SUPABASE_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-
-let isSignUp=false;
-
-// === AUTH SETUP ===
-async function checkAuth(){
-  const{data:{session}}=await sb.auth.getSession();
-  if(!session){
-    document.getElementById('login-screen').style.display='flex';
-    document.getElementById('app-screen').style.display='none';
-  }else{
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app-screen').style.display='block';
-    initApp();
-  }
-}
-
-document.getElementById('login-form').addEventListener('submit',async(e)=>{
-  e.preventDefault();
-  const email=document.getElementById('login-email').value;
-  const password=document.getElementById('login-password').value;
-  const error=document.getElementById('login-error');
-  const btn=e.target.querySelector('button[type="submit"]');
-  btn.style.opacity='0.6';
-  
-  try{
-    if(isSignUp){
-      const{error:err}=await sb.auth.signUp({email,password});
-      if(err)throw err;
-      error.style.color='#2f7d5b';
-      error.textContent='Account created! Sign in now.';
-      isSignUp=false;
-      document.getElementById('signup-toggle').textContent='Create Account';
-    }else{
-      const{error:err}=await sb.auth.signInWithPassword({email,password});
-      if(err)throw err;
-      checkAuth();
-    }
-  }catch(err){
-    error.textContent=err.message;
-  }finally{
-    btn.style.opacity='1';
-  }
-});
-
-document.getElementById('signup-toggle').addEventListener('click',()=>{
-  isSignUp=!isSignUp;
-  document.getElementById('signup-toggle').textContent=isSignUp?'Back to Sign In':'Create Account';
-});
-
-document.getElementById('logout-btn').addEventListener('click',async()=>{
-  await sb.auth.signOut();
-  location.reload();
-});
-
-// === APP INITIALIZATION ===
-async function initApp(){
-  const{data:{user}}=await sb.auth.getUser();
-  if(!user)return;
-  
-  // Call init() which will load from Supabase via db.load()
-  await init();
-}
-
-checkAuth();
-</script>
-
 </body>
 </html>
