@@ -338,7 +338,20 @@ async function init(){
 }
 async function persist(){await db.save(tasks);}
 async function addTask(t){t=t.trim();if(!t)return;
-  tasks.push({id:uid(),text:t,q:'inbox',month:null,year:null,week:null,done:false,createdAt:Date.now(),completedAt:null});await persist();render();}
+  tasks.push({
+    id:uid(),
+    text:t,
+    quadrant:'inbox',
+    channel:null,
+    month:null,
+    year:null,
+    week:null,
+    week_rank:null,
+    matrix_rank:null,
+    done:false,
+    completedAt:null
+  });
+  await persist();render();}
 async function toggleDone(id){const t=tasks.find(x=>x.id===id);if(!t)return;t.done=!t.done;t.completedAt=t.done?Date.now():null;await persist();render();}
 async function removeTask(id){tasks=tasks.filter(x=>x.id!==id);await persist();render();}
 function clampPast(t){if(t.month&&t.year&&isPast(t.month,t.year)){alert("Can't schedule in the past — moved to "+FULL[CURMONTH-1]+" "+CURYEAR+".");t.month=CURMONTH;t.year=CURYEAR;}}
