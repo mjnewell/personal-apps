@@ -6,10 +6,17 @@ const SUPABASE_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 let isSignUp=false;
 
-document.addEventListener('DOMContentLoaded',async()=>{
-  const{data:{session}}=await sb.auth.getSession();
-  if(!session){showAuth();}
-});
+document.documentElement.style.display='none';
+(async()=>{
+  try{
+    const{data:{session}}=await sb.auth.getSession();
+    if(!session){
+      showAuth();
+      return;
+    }
+  }catch(e){console.error('Auth check failed:',e);}
+  document.documentElement.style.display='block';
+})();
 
 function showAuth(){
   const html=`<div id="auth-overlay" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)"><div style="background:#f4f1ea;border-radius:12px;padding:40px;max-width:360px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3)"><h1 style="margin-bottom:12px;font-size:24px;font-weight:600;color:#23211c">Sign In</h1><p style="color:#6f6a5f;margin-bottom:20px;font-size:14px">Access your tasks</p><form id="auth-form" style="display:flex;flex-direction:column;gap:12px"><input id="email" type="email" placeholder="Email" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px;font-size:14px;font-family:inherit"><input id="password" type="password" placeholder="Password" required style="padding:11px 14px;border:1px solid #e0dbcf;border-radius:8px;font-size:14px;font-family:inherit"><button type="submit" style="padding:12px;background:#23211c;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer;transition:background 0.15s">Sign In</button><button type="button" id="signup-btn" style="padding:12px;background:transparent;color:#2f7d5b;border:1px solid #e0dbcf;border-radius:8px;font-weight:600;cursor:pointer">Create Account</button><div id="error" style="color:#c0492f;font-size:13px;min-height:20px"></div></form></div></div>`;
@@ -35,6 +42,7 @@ function showAuth(){
         const{error:err}=await sb.auth.signInWithPassword({email,password});
         if(err)throw err;
         document.getElementById('auth-overlay').remove();
+        document.documentElement.style.display='block';
       }
     }catch(err){
       error.textContent=err.message;
