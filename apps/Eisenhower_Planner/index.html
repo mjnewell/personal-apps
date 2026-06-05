@@ -453,7 +453,7 @@ document.getElementById('closePast').onclick=()=>document.getElementById('overla
 const input=document.getElementById('taskInput');
 document.getElementById('addBtn').onclick=()=>{addTask(input.value);input.value='';input.focus();};
 input.addEventListener('keydown',e=>{if(e.key==='Enter'){addTask(input.value);input.value='';}});
-init();
+// init called inside checkAuth after auth
 </script>
 </div>
 </body>
