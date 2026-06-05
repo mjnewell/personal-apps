@@ -317,9 +317,13 @@ document.getElementById('logout-btn').addEventListener('click',async()=>{
 // === APP INITIALIZATION ===
 async function initApp(){
   const{data:{user}}=await sb.auth.getUser();
-  if(!user)return;
+  if(!user){console.error('No user');return;}
+  console.log('User:',user.id);
   
   const{data:dbApps,error}=await sb.from('launcher_apps').select('*').eq('user_id',user.id).order('order_idx');
+  console.log('Query error:',error);
+  console.log('Data loaded:',dbApps);
+  
   if(error){
     console.error('Load error:',error);
     return;
@@ -327,9 +331,11 @@ async function initApp(){
   
   // Load data from Supabase into the app
   items = dbApps || [];
+  console.log('Items set to:',items);
   
   // Render the UI
   render();
+  console.log('Rendered');
 }
 
 checkAuth();
