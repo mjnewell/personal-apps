@@ -211,7 +211,12 @@ const db={
       if(!user)return null;
       const{data,error}=await sb.from('tasks').select('*').eq('user_id',user.id).order('matrix_rank',{nullsFirst:false});
       if(error)throw error;
-      return data||null;
+      // Map database fields to app fields
+      return data?.map(t=>({
+        ...t,
+        month: t.sched_month,
+        year: t.sched_year
+      }))||null;
     }catch(e){console.error('Load error:',e);return null;}
   },
   async save(t){
@@ -221,6 +226,9 @@ const db={
       for(let task of t){
         task.user_id=user.id;
         if(!task.id)task.id=crypto.randomUUID();
+        // Map app fields to database fields
+        task.sched_month=task.month;
+        task.sched_year=task.year;
         if(task.deleted){
           await sb.from('tasks').delete().eq('id',task.id);
         }else{
