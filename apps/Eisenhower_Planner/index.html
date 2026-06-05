@@ -414,7 +414,7 @@ document.getElementById('closePast').onclick=()=>document.getElementById('overla
 const input=document.getElementById('taskInput');
 document.getElementById('addBtn').onclick=()=>{addTask(input.value);input.value='';input.focus();};
 input.addEventListener('keydown',e=>{if(e.key==='Enter'){addTask(input.value);input.value='';}});
-init();
+// Don't call init here - call it after Supabase auth is ready (in initApp)
 </script>
 </body>
 </html>
@@ -483,27 +483,8 @@ async function initApp(){
   const{data:{user}}=await sb.auth.getUser();
   if(!user)return;
   
-  // Load tasks from Supabase
-  const{data:dbTasks,error}=await sb.from('tasks').select('*').eq('user_id',user.id).order('matrix_rank');
-  if(error){
-    console.error('Load error:',error);
-    return;
-  }
-  
-  // Store in window for the original app to use
-  window.APP_DATA={user,tasks:dbTasks||[]};
-  window.DB_SAVE=async(tasks)=>{
-    for(let t of tasks){
-      t.user_id=user.id;
-      if(!t.id)t.id=crypto.randomUUID();
-      if(t.deleted){
-        await sb.from('tasks').delete().eq('id',t.id);
-      }else{
-        delete t.deleted;
-        await sb.from('tasks').upsert(t);
-      }
-    }
-  };
+  // Call init() which will load from Supabase via db.load()
+  await init();
 }
 
 checkAuth();
