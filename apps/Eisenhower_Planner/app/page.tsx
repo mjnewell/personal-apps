@@ -7,7 +7,7 @@ import './page.css';
 
 export default function EisenhowerPlanner() {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [channels, setChannels] = useState({ c1: 'Channel 1', c2: 'Channel 2', c3: 'Channel 3' });
+  const [channels, setChannels] = useState<Record<string, string>>({ c1: 'Channel 1', c2: 'Channel 2', c3: 'Channel 3' });
   const [userId, setUserId] = useState<string | null>(null);
   const [newTaskText, setNewTaskText] = useState('');
   const [draggedTask, setDraggedTask] = useState<Task | null>(null);
@@ -55,7 +55,7 @@ export default function EisenhowerPlanner() {
 
   const moveTask = (taskId: string, newQuadrant: string) => {
     const updated = tasks.map(t =>
-      t.id === taskId ? { ...t, q: newQuadrant } : t
+      t.id === taskId ? { ...t, q: newQuadrant as Task['q'] } : t
     );
     setTasks(updated);
     saveToDb(updated);
