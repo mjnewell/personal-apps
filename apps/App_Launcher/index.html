@@ -95,13 +95,40 @@
   <footer>Saves to this browser for now · swap the db layer for Supabase to sync across devices</footer>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-/* ===== DATA LAYER — swap for Supabase later (same method names, already async) ===== */
+/* ===== SUPABASE CONNECTION ===== */
+const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
+const SUPABASE_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let USER_ID=null;
+
+async function ensureAuth(){
+  let {data:{session}}=await sb.auth.getSession();
+  if(!session){
+    const {data}=await sb.auth.signInAnonymously();
+    session=data.session;
+  }
+  USER_ID=session.user.id;
+}
+
+/* ===== DATA LAYER — Supabase backed ===== */
 const db={KEY:'workshop_v2',_m:[],
-  async load(){try{const r=localStorage.getItem(this.KEY);if(r)return JSON.parse(r);
-    const old=localStorage.getItem('workshop_apps_v1');if(old)return JSON.parse(old).map(a=>({...a,type:'app'}));
-    return [];}catch{return this._m;}},
-  async save(list){this._m=list;try{localStorage.setItem(this.KEY,JSON.stringify(list));}catch{}}};
+  async load(){
+    if(!USER_ID)await ensureAuth();
+    const {data,error}=await sb.from('launcher_apps').select('*').eq('user_id',USER_ID).order('order_idx',{ascending:true});
+    if(error){console.error(error);return [];}
+    return data.map(r=>({id:r.id,type:r.is_section?'header':'app',title:r.title,url:r.url}));
+  },
+  async save(list){
+    if(!USER_ID)await ensureAuth();
+    const rows=list.map((item,i)=>({id:item.id,user_id:USER_ID,title:item.title,url:item.url||'',is_section:item.type==='header',order_idx:i}));
+    const ids=rows.map(r=>r.id);
+    const {error:delErr}=await sb.from('launcher_apps').delete().eq('user_id',USER_ID).not('id','in',`(${ids.map(id=>`'${id}'`).join(',')})`);
+    if(delErr)console.error('Delete error:',delErr);
+    const {error:upErr}=await sb.from('launcher_apps').upsert(rows);
+    if(upErr)console.error('Upsert error:',upErr);
+  }};
 
 /* items: {id, type:'app'|'header', title, url?} in display order */
 let items=[];
@@ -113,7 +140,7 @@ function normUrl(u){u=u.trim();if(!u)return'';if(!/^https?:\/\//i.test(u))u='htt
 function hostOf(u){try{return new URL(u).hostname.replace(/^www\./,'');}catch{return u;}}
 function favUrl(u){try{return 'https://www.google.com/s2/favicons?domain='+new URL(u).hostname+'&sz=64';}catch{return'';}}
 
-async function init(){items=await db.load();render();}
+async function init(){await ensureAuth();items=await db.load();render();}
 async function persist(){await db.save(items);}
 
 async function submitApp(){const t=title.value.trim(),u=normUrl(url.value);if(!t||!u)return;
