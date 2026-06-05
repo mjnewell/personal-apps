@@ -207,10 +207,63 @@
 <script>
 /* ===== DATA LAYER — swap internals for Supabase (methods already async) ===== */
 const db={KEY:'eisen_v8',SKEY:'eisen_ch_v8',_m:[],_s:{},
-  async load(){try{const r=localStorage.getItem(this.KEY);return r?JSON.parse(r):null;}catch{return this._m.length?this._m:null;}},
-  async save(t){this._m=t;try{localStorage.setItem(this.KEY,JSON.stringify(t));}catch{}},                 // SUPABASE upsert
-  async loadCh(){try{const r=localStorage.getItem(this.SKEY);return r?JSON.parse(r):{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};}catch{return this._s;}},
-  async saveCh(s){this._s=s;try{localStorage.setItem(this.SKEY,JSON.stringify(s));}catch{}}};
+const db={
+  async load(){
+    try{
+      const{data:{user}}=await sb.auth.getUser();
+      if(!user)return null;
+      const{data:tasks,error}=await sb.from('tasks').select('*').eq('user_id',user.id).order('matrix_rank');
+      if(error)throw error;
+      return tasks||null;
+    }catch(e){
+      console.error('Load failed:',e);
+      return null;
+    }
+  },
+  async save(tasks){
+    try{
+      const{data:{user}}=await sb.auth.getUser();
+      if(!user)return;
+      for(let t of tasks){
+        t.user_id=user.id;
+        if(!t.id)t.id=crypto.randomUUID();
+        if(t.deleted){
+          await sb.from('tasks').delete().eq('id',t.id);
+        }else{
+          delete t.deleted;
+          await sb.from('tasks').upsert(t);
+        }
+      }
+    }catch(e){
+      console.error('Save failed:',e);
+    }
+  },
+  async loadCh(){
+    try{
+      const{data:{user}}=await sb.auth.getUser();
+      if(!user)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
+      const{data:settings,error}=await sb.from('channels').select('*').eq('user_id',user.id).single();
+      if(error||!settings)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
+      return{c1:settings.name1||'Channel 1',c2:settings.name2||'Channel 2',c3:settings.name3||'Channel 3'};
+    }catch(e){
+      return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
+    }
+  },
+  async saveCh(s){
+    try{
+      const{data:{user}}=await sb.auth.getUser();
+      if(!user)return;
+      const{data:existing}=await sb.from('channels').select('id').eq('user_id',user.id).single();
+      if(existing){
+        await sb.from('channels').update({name1:s.c1,name2:s.c2,name3:s.c3}).eq('user_id',user.id);
+      }else{
+        await sb.from('channels').insert({user_id:user.id,name1:s.c1,name2:s.c2,name3:s.c3});
+      }
+    }catch(e){
+      console.error('Channel save failed:',e);
+    }
+  }
+};
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];

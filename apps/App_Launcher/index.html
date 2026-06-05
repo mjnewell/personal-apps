@@ -118,12 +118,41 @@
 </div>
 
 <script>
-/* ===== DATA LAYER — swap for Supabase later (same method names, already async) ===== */
-const db={KEY:'workshop_v2',_m:[],
-  async load(){try{const r=localStorage.getItem(this.KEY);if(r)return JSON.parse(r);
-    const old=localStorage.getItem('workshop_apps_v1');if(old)return JSON.parse(old).map(a=>({...a,type:'app'}));
-    return [];}catch{return this._m;}},
-  async save(list){this._m=list;try{localStorage.setItem(this.KEY,JSON.stringify(list));}catch{}}};
+/* ===== DATA LAYER — Supabase ===== */
+const db={
+  async load(){
+    try{
+      const{data:{user}}=await sb.auth.getUser();
+      if(!user)return null;
+      const{data:apps,error}=await sb.from('launcher_apps').select('*').eq('user_id',user.id).order('order_idx');
+      if(error)throw error;
+      return apps||null;
+    }catch(e){
+      console.error('Load failed:',e);
+      return null;
+    }
+  },
+  async save(list){
+    try{
+      const{data:{user}}=await sb.auth.getUser();
+      if(!user)return;
+      for(let i=0;i<list.length;i++){
+        const item=list[i];
+        item.user_id=user.id;
+        if(!item.id)item.id=crypto.randomUUID();
+        item.order_idx=i;
+        if(item.deleted){
+          await sb.from('launcher_apps').delete().eq('id',item.id);
+        }else{
+          delete item.deleted;
+          await sb.from('launcher_apps').upsert(item);
+        }
+      }
+    }catch(e){
+      console.error('Save failed:',e);
+    }
+  }
+};
 
 /* items: {id, type:'app'|'header', title, url?} in display order */
 let items=[];
