@@ -131,7 +131,11 @@ const db={
       if(!user)return null;
       const{data:apps,error}=await sb.from('launcher_apps').select('*').eq('user_id',user.id).order('order_idx');
       if(error)throw error;
-      return apps||null;
+      // Map database fields to app fields
+      return apps?.map(a=>({
+        ...a,
+        type: a.is_section ? 'header' : 'app'
+      }))||null;
     }catch(e){
       console.error('Load failed:',e);
       return null;
@@ -141,18 +145,23 @@ const db={
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return;
+      const ops=[];
       for(let i=0;i<list.length;i++){
         const item=list[i];
         item.user_id=user.id;
         if(!item.id)item.id=crypto.randomUUID();
         item.order_idx=i;
+        // Map app fields back to database fields
+        item.is_section = item.type === 'header';
         if(item.deleted){
-          await sb.from('launcher_apps').delete().eq('id',item.id);
+          ops.push(sb.from('launcher_apps').delete().eq('id',item.id));
         }else{
           delete item.deleted;
-          await sb.from('launcher_apps').upsert(item);
+          ops.push(sb.from('launcher_apps').upsert(item));
         }
       }
+      // Execute all saves in parallel
+      await Promise.all(ops);
     }catch(e){
       console.error('Save failed:',e);
     }
@@ -249,7 +258,7 @@ async function onUp(){
   if(drag.clone)drag.clone.remove();
   const el=document.querySelector(`[data-id="${drag.id}"]`);if(el)el.classList.remove('ghost');
   const moved=drag.moved;drag=null;
-  if(moved){await persist();if(el){el.dataset.dragged='1';setTimeout(()=>{delete el.dataset.dragged;},50);}}
+  if(moved){persist();if(el){el.dataset.dragged='1';setTimeout(()=>{delete el.dataset.dragged;},50);}}
 }
 
 addBtn.addEventListener('click',submitApp);
@@ -334,7 +343,6 @@ async function initApp(){
 }
 
 checkAuth();
-initApp();
 </script>
 
 </body>
