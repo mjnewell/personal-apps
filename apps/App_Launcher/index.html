@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workshop — App Launcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --paper:#f1efe8;--ink:#1c1e22;--muted:#73706a;--faint:#a8a399;
+    --card:#fbfaf6;--line:#e3ddd0;--accent:#d9542b;--accent-soft:#f6e3da;
+    --grid:rgba(28,30,34,.045);--shadow:0 1px 2px rgba(28,30,34,.05),0 10px 30px rgba(28,30,34,.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'DM Sans',sans-serif;color:var(--ink);min-height:100vh;padding:48px 24px 80px;
+    background:linear-gradient(var(--grid) 1px,transparent 1px) 0 0/26px 26px,
+      linear-gradient(90deg,var(--grid) 1px,transparent 1px) 0 0/26px 26px,
+      radial-gradient(900px 480px at 92% -8%,rgba(217,84,43,.07),transparent 60%),var(--paper);
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1000px;margin:0 auto}
+  header{margin-bottom:28px}
+  .eyebrow{font-family:'JetBrains Mono';font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--accent)}
+  h1{font-family:'Syne';font-weight:800;font-size:clamp(34px,6vw,58px);letter-spacing:-.02em;line-height:.95;margin:10px 0 8px}
+  header p{color:var(--muted);font-size:14.5px}
+
+  .composer{display:flex;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);
+    border-radius:16px;padding:12px;box-shadow:var(--shadow);margin-bottom:26px}
+  .composer input{flex:1;min-width:150px;background:transparent;border:1px solid var(--line);border-radius:11px;
+    padding:12px 14px;font-family:'DM Sans';font-size:15px;color:var(--ink)}
+  .composer input.url{font-family:'JetBrains Mono';font-size:13px}
+  .composer input:focus{outline:none;border-color:var(--accent)}
+  .composer button{border-radius:11px;padding:0 20px;font-family:'Syne';font-weight:700;font-size:14px;cursor:pointer;transition:transform .12s,background .15s,color .15s}
+  .composer button:active{transform:scale(.97)}
+  #addBtn{background:var(--ink);color:var(--paper);border:none}
+  #addBtn.editing{background:var(--accent)}
+  #sectionBtn{background:transparent;border:1px dashed var(--line);color:var(--muted)}
+  #sectionBtn:hover{border-color:var(--accent);color:var(--accent)}
+
+  #board{display:flex;flex-direction:column;gap:4px}
+  .section-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;margin-bottom:14px}
+
+  .header{display:flex;align-items:center;gap:11px;margin:18px 2px 10px;cursor:grab;touch-action:none;user-select:none}
+  .header:first-child{margin-top:0}
+  .header .grip{color:var(--faint);font-size:13px;letter-spacing:-2px;cursor:grab}
+  .header .htitle{font-family:'Syne';font-weight:800;font-size:14px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);outline:none;padding:2px 0;min-width:30px}
+  .header .htitle:focus{color:var(--accent)}
+  .header .rule{flex:1;height:1px;background:var(--line)}
+  .header .hx{color:var(--faint);cursor:pointer;font-size:16px;line-height:1}
+  .header .hx:hover{color:var(--accent)}
+  .header.ghost{opacity:.3}
+
+  .chip{position:relative;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;
+    box-shadow:var(--shadow);cursor:pointer;transition:transform .16s,border-color .16s,box-shadow .16s;
+    display:flex;flex-direction:column;gap:11px;min-height:104px;touch-action:none;user-select:none}
+  .chip:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 2px 4px rgba(28,30,34,.06),0 16px 40px rgba(217,84,43,.12)}
+  .chip.ghost{opacity:.3}
+  .chip .fav{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:#fff;object-fit:cover;flex:none}
+  .chip .favball{width:32px;height:32px;border-radius:9px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;font-family:'Syne';font-weight:800;font-size:15px;flex:none}
+  .chip .title{font-family:'Syne';font-weight:700;font-size:17px;letter-spacing:-.01em;line-height:1.15;word-break:break-word}
+  .chip .host{font-family:'JetBrains Mono';font-size:11.5px;color:var(--muted);word-break:break-all}
+  .chip .arrow{position:absolute;top:14px;right:14px;font-size:15px;color:var(--faint);transition:color .15s,transform .15s}
+  .chip:hover .arrow{color:var(--accent);transform:translate(2px,-2px)}
+  .chip .tools{position:absolute;bottom:12px;right:12px;display:flex;gap:6px;opacity:0;transition:opacity .15s}
+  .chip:hover .tools{opacity:1}
+  .chip .tools b{font-family:'DM Sans';font-weight:600;font-size:11px;background:#fff;border:1px solid var(--line);border-radius:7px;padding:3px 8px;color:var(--muted);cursor:pointer}
+  .chip .tools b:hover{color:var(--accent);border-color:var(--accent)}
+  .chip .tools b.del:hover{color:#fff;background:var(--accent);border-color:var(--accent)}
+
+  .empty{text-align:center;color:var(--faint);padding:50px 0;font-size:15px;border:1.5px dashed var(--line);border-radius:18px}
+  .floating{position:fixed;z-index:999;pointer-events:none;box-shadow:0 16px 40px rgba(28,30,34,.25);transform:rotate(-1.5deg)}
+  footer{margin-top:34px;text-align:center;color:var(--faint);font-size:12px;font-family:'JetBrains Mono'}
+  #logout-btn{position:fixed;top:16px;right:16px;padding:8px 16px;background:var(--accent);color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;z-index:1000;font-family:'DM Sans'}
+</style>
+</head>
+<body>
+<div class="wrap" id="appContent" style="display:none">
+  <button id="logout-btn">Logout</button>
+  <header>
+    <div class="eyebrow">Workshop</div>
+    <h1>App Launcher</h1>
+    <p>Add apps, drop in section dividers, and drag anything up or down to organize.</p>
+  </header>
+
+  <div class="composer">
+    <input id="title" type="text" placeholder="App name" autocomplete="off">
+    <input id="url" class="url" type="text" placeholder="https://…" autocomplete="off">
+    <button id="addBtn">Add</button>
+    <button id="sectionBtn">+ Section divider</button>
+  </div>
+
+  <div id="board"></div>
+
+  <footer>Syncs across devices via Supabase · offline cache for instant local access</footer>
+</div>
+
+<script>
+const SUPABASE_URL      = 'https://avbwykhmzuvtglqmkaqu.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const toRow = (it, user_id, position) => ({
+  id: it.id,
+  user_id,
+  type:  it.type || 'app',
+  title: it.title || '',
+  url:   it.url || null,
+  position
+});
+const fromRow = r => ({
+  id: r.id,
+  type:  r.type || 'app',
+  title: r.title || '',
+  url:   r.url || ''
+});
+
+const LCACHE = 'workshop_cache_v2';
+let _uid = null, _saveTimer = null, _pending = null;
+
+const db = {
+  set uid(v){ _uid = v; },
+  get uid(){ return _uid; },
+
+  async load(){
+    try{
+      const { data, error } = await sb.from('launcher_items')
+        .select('*').order('position', { ascending:true, nullsFirst:false });
+      if(error) throw error;
+      const list = (data || []).map(fromRow);
+      try{ localStorage.setItem(LCACHE, JSON.stringify(list)); }catch{}
+      return list;
+    }catch(e){
+      console.error('[launcher load]', e.message || e);
+      try{ const r = localStorage.getItem(LCACHE); return r ? JSON.parse(r) : []; }catch{ return []; }
+    }
+  },
+
+  save(items){
+    try{ localStorage.setItem(LCACHE, JSON.stringify(items)); }catch{}
+    _pending = items.map(x => ({...x}));
+    clearTimeout(_saveTimer);
+    _saveTimer = setTimeout(_flush, 400);
+    return Promise.resolve();
+  }
+};
+
+async function _flush(){
+  if(!_pending || !_uid) return;
+  const items = _pending; _pending = null;
+  try{
+    const rows = items.map((it, i) => toRow(it, _uid, i));
+    if(rows.length){
+      const { error } = await sb.from('launcher_items').upsert(rows);
+      if(error) throw error;
+    }
+    const ids = items.map(x => x.id).filter(Boolean);
+    let del = sb.from('launcher_items').delete().eq('user_id', _uid);
+    if(ids.length){
+      del = del.not('id', 'in', '(' + ids.map(i => `"${i}"`).join(',') + ')');
+    }
+    const { error: e2 } = await del;
+    if(e2) throw e2;
+  }catch(e){
+    console.error('[launcher sync]', e.message || e);
+  }
+}
+
+let isSignUp = false;
+
+async function bootstrap(){
+  try{
+    const { data:{ session } } = await sb.auth.getSession();
+    if(session){ db.uid = session.user.id; await safeInit(); }
+    else showLogin();
+    sb.auth.onAuthStateChange((_evt, s) => {
+      if(s){ db.uid = s.user.id; hideLogin(); safeInit(); }
+      else { items = []; render(); showLogin(); }
+    });
+  }catch(e){
+    console.error('[bootstrap]', e.message || e);
+    await safeInit();
+  }
+}
+async function safeInit(){ try{ await init(); }catch(e){ console.error('[init]', e.message||e); try{ render(); }catch{} } }
+
+function showLogin(){
+  if(document.getElementById('authGate')) return;
+  const g = document.createElement('div');
+  g.id = 'authGate';
+  g.style.cssText = 'position:fixed;inset:0;background:#f1efe8;display:flex;align-items:center;justify-content:center;z-index:9999;font-family:"DM Sans",sans-serif';
+  g.innerHTML = `<div style="background:#fff;border:1px solid #e3ddd0;border-radius:16px;padding:28px;max-width:340px;width:90%;box-shadow:0 10px 30px rgba(0,0,0,.08)">
+      <h2 style="margin:0 0 6px;font-size:20px;font-weight:600">Workshop</h2>
+      <p style="margin:0 0 14px;color:#73706a;font-size:14px">Sign in to your App Launcher</p>
+      <form id="authForm" style="display:flex;flex-direction:column;gap:12px">
+        <input id="authEmail" type="email" placeholder="Email" required style="width:100%;padding:11px;border:1px solid #e3ddd0;border-radius:10px;font-size:15px">
+        <input id="authPassword" type="password" placeholder="Password" required style="width:100%;padding:11px;border:1px solid #e3ddd0;border-radius:10px;font-size:15px">
+        <button type="submit" id="authSubmit" style="width:100%;padding:11px;border:none;border-radius:10px;background:#1c1e22;color:#fff;font-weight:700;cursor:pointer">Sign In</button>
+        <button type="button" id="authToggle" style="width:100%;padding:11px;border:1px dashed #e3ddd0;border-radius:10px;background:transparent;color:#d9542b;font-weight:700;cursor:pointer">Create Account</button>
+        <div id="authMsg" style="margin-top:10px;color:#73706a;font-size:13px;min-height:20px"></div>
+      </form>
+    </div>`;
+  document.body.appendChild(g);
+  
+  const form = g.querySelector('#authForm');
+  const email = g.querySelector('#authEmail');
+  const password = g.querySelector('#authPassword');
+  const msg = g.querySelector('#authMsg');
+  const toggle = g.querySelector('#authToggle');
+  const submit = g.querySelector('#authSubmit');
+  
+  toggle.addEventListener('click', () => {
+    isSignUp = !isSignUp;
+    toggle.textContent = isSignUp ? 'Back to Sign In' : 'Create Account';
+    submit.textContent = isSignUp ? 'Create Account' : 'Sign In';
+    msg.textContent = '';
+  });
+  
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    msg.textContent = '';
+    const em = email.value.trim();
+    const pw = password.value.trim();
+    if(!em || !pw) { msg.textContent = 'Fill in both fields'; return; }
+    
+    try {
+      if(isSignUp){
+        const { error } = await sb.auth.signUp({ email: em, password: pw });
+        if(error) throw error;
+        msg.textContent = '✓ Account created! Sign in now.';
+        isSignUp = false;
+        submit.textContent = 'Sign In';
+        toggle.textContent = 'Create Account';
+        email.value = '';
+        password.value = '';
+      }else{
+        const { error } = await sb.auth.signInWithPassword({ email: em, password: pw });
+        if(error) throw error;
+      }
+    }catch(e){
+      msg.textContent = 'Error: ' + (e.message || e);
+    }
+  });
+}
+
+function hideLogin(){ const g = document.getElementById('authGate'); if(g) g.remove(); document.getElementById('appContent').style.display=''; }
+
+let items=[];
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let editingId=null;
+const title=document.getElementById('title'),url=document.getElementById('url'),addBtn=document.getElementById('addBtn');
+
+function normUrl(u){u=u.trim();if(!u)return'';if(!/^https?:\/\//i.test(u))u='https://'+u;return u;}
+function hostOf(u){try{return new URL(u).hostname.replace(/^www\./,'');}catch{return u;}}
+function favUrl(u){try{return 'https://www.google.com/s2/favicons?domain='+new URL(u).hostname+'&sz=64';}catch{return'';}}
+
+async function init(){items=await db.load();render();}
+async function persist(){await db.save(items);}
+
+async function submitApp(){const t=title.value.trim(),u=normUrl(url.value);if(!t||!u)return;
+  if(editingId){const a=items.find(x=>x.id===editingId);if(a){a.title=t;a.url=u;}editingId=null;addBtn.textContent='Add';addBtn.classList.remove('editing');}
+  else items.push({id:uid(),type:'app',title:t,url:u});
+  title.value='';url.value='';title.focus();await persist();render();}
+async function addSection(){const id=uid();items.push({id,type:'header',title:'New section'});await persist();render();
+  const el=document.querySelector(`.header[data-id="${id}"] .htitle`);if(el){el.focus();document.getSelection().selectAllChildren(el);}}
+function startEditApp(id){const a=items.find(x=>x.id===id);if(!a)return;editingId=id;title.value=a.title;url.value=a.url;addBtn.textContent='Update';addBtn.classList.add('editing');title.focus();}
+async function del(id){const a=items.find(x=>x.id===id);const what=a?(a.type==='header'?'section "'+a.title+'"':'"'+a.title+'"'):'this';
+  if(confirm('Remove '+what+'?')){items=items.filter(x=>x.id!==id);await persist();render();}}
+
+function chipEl(a){
+  const c=document.createElement('div');c.className='chip';c.dataset.id=a.id;
+  const letter=(a.title[0]||'?').toUpperCase();
+  c.innerHTML=`<img class="fav" alt="" src="${favUrl(a.url)}">
+    <div><div class="title"></div><div class="host"></div></div>
+    <span class="arrow">↗</span>
+    <div class="tools"><b data-act="edit">edit</b><b class="del" data-act="del">delete</b></div>`;
+  const img=c.querySelector('.fav');img.onerror=()=>{const b=document.createElement('div');b.className='favball';b.textContent=letter;img.replaceWith(b);};
+  c.querySelector('.title').textContent=a.title;c.querySelector('.host').textContent=hostOf(a.url);
+  c.addEventListener('click',e=>{if(e.target.dataset.act||c.dataset.dragged)return;window.open(a.url,'_blank','noopener');});
+  c.querySelector('[data-act="edit"]').addEventListener('click',e=>{e.stopPropagation();startEditApp(a.id);});
+  c.querySelector('[data-act="del"]').addEventListener('click',e=>{e.stopPropagation();del(a.id);});
+  c.addEventListener('pointerdown',e=>startDrag(e,a.id,c));
+  return c;
+}
+function headerEl(h){
+  const el=document.createElement('div');el.className='header';el.dataset.id=h.id;
+  el.innerHTML=`<span class="grip">⠿</span><span class="htitle" contenteditable="true" spellcheck="false"></span><span class="rule"></span><b class="hx" data-act="del">×</b>`;
+  const ht=el.querySelector('.htitle');ht.textContent=h.title;
+  ht.addEventListener('blur',async()=>{h.title=ht.textContent.trim()||'Section';await persist();});
+  ht.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();ht.blur();}});
+  el.querySelector('[data-act="del"]').addEventListener('click',e=>{e.stopPropagation();del(h.id);});
+  el.addEventListener('pointerdown',e=>startDrag(e,h.id,el));
+  return el;
+}
+function render(){
+  const board=document.getElementById('board');board.innerHTML='';
+  if(!items.length){board.innerHTML='<div class="empty">Nothing yet — add an app or a section divider above ↑</div>';return;}
+  let i=0;
+  while(i<items.length){
+    if(items[i].type==='header'){board.appendChild(headerEl(items[i]));i++;}
+    else{const grid=document.createElement('div');grid.className='section-grid';
+      while(i<items.length&&items[i].type==='app'){grid.appendChild(chipEl(items[i]));i++;}
+      board.appendChild(grid);}
+  }
+}
+
+let drag=null;
+function startDrag(e,id,el){
+  if(e.target.dataset.act||e.target.isContentEditable)return;
+  const r=el.getBoundingClientRect();
+  drag={id,el,moved:false,sx:e.clientX,sy:e.clientY,dx:e.clientX-r.left,dy:e.clientY-r.top,w:r.width,clone:null};
+  window.addEventListener('pointermove',onMove);window.addEventListener('pointerup',onUp);
+}
+function onMove(e){
+  if(!drag)return;
+  if(!drag.moved){if(Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)<6)return;
+    drag.moved=true;const r=drag.el.getBoundingClientRect();const cl=drag.el.cloneNode(true);
+    cl.classList.add('floating');cl.style.width=drag.w+'px';cl.style.left=r.left+'px';cl.style.top=r.top+'px';
+    document.body.appendChild(cl);drag.clone=cl;drag.el.classList.add('ghost');}
+  drag.clone.style.left=(e.clientX-drag.dx)+'px';drag.clone.style.top=(e.clientY-drag.dy)+'px';
+  drag.clone.style.display='none';const u=document.elementFromPoint(e.clientX,e.clientY);drag.clone.style.display='';
+  const over=u&&u.closest('.chip,.header');
+  if(over&&over.dataset.id!==drag.id){
+    const b=over.getBoundingClientRect();
+    const after=over.classList.contains('header')?(e.clientY>b.top+b.height/2):(e.clientX>b.left+b.width/2);
+    const from=items.findIndex(x=>x.id===drag.id);const [m]=items.splice(from,1);
+    let to=items.findIndex(x=>x.id===over.dataset.id);if(after)to++;items.splice(to,0,m);render();
+    drag.el=document.querySelector(`[data-id="${drag.id}"]`);if(drag.el)drag.el.classList.add('ghost');
+  }
+}
+async function onUp(){
+  if(!drag)return;window.removeEventListener('pointermove',onMove);window.removeEventListener('pointerup',onUp);
+  if(drag.clone)drag.clone.remove();
+  const el=document.querySelector(`[data-id="${drag.id}"]`);if(el)el.classList.remove('ghost');
+  const moved=drag.moved;drag=null;
+  if(moved){await persist();if(el){el.dataset.dragged='1';setTimeout(()=>{delete el.dataset.dragged;},50);}}
+}
+
+addBtn.addEventListener('click',submitApp);
+document.getElementById('sectionBtn').addEventListener('click',addSection);
+[title,url].forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')submitApp();}));
+document.getElementById('logout-btn').addEventListener('click',async()=>{await sb.auth.signOut();});
+
+bootstrap();
+</script>
+</body>
+</html>
