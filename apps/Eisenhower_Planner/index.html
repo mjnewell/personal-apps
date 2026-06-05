@@ -310,6 +310,8 @@ const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const fmt=ts=>new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'});
 const qzones=['inbox','q1','q2c1','q2c2','q2c3','q3','q4'];
 const baseQ=q=>q.startsWith('q2c')?'q2':q;
+const getChannel=z=>{if(z==='q2c1')return 1;if(z==='q2c2')return 2;if(z==='q2c3')return 3;return null;};
+const tasksInZone=(z)=>tasks.filter(t=>!t.done&&(z.startsWith('q2c')?t.quadrant==='q2'&&t.channel===getChannel(z):t.quadrant===z));
 
 function seed(){return [
   {id:uid(),text:'Finish Q2 board deck',q:'q1',month:CURMONTH,year:CURYEAR,week:1,done:false,createdAt:Date.now(),completedAt:null},
@@ -340,7 +342,7 @@ async function setWeek(id,w){const t=tasks.find(x=>x.id===id);if(!t)return;
     if(cnt>=5){alert('Week '+w+' already holds its top 5.');return;}}
   t.week=off?null:w;t.wrank=Date.now();
   if(t.week!==null && !t.month){t.month=CURMONTH;t.year=CURYEAR;}
-  if(t.week!==null && t.q==='inbox') t.q='q2c1';
+  if(t.week!==null && t.quadrant==='inbox') t.quadrant='q2';
   await persist();render();}
 
 function stateOf(t){if(!t.month)return 'plain';
@@ -388,13 +390,13 @@ function startEdit(id,txtEl,chip){chip.classList.add('editing');txtEl.contentEdi
 function render(){
   [...qzones,'w0','w1','w2','w3','w4','w5'].forEach(z=>document.getElementById('z-'+z).innerHTML='');
   // matrix — non-future first, future (grayed) sorted to the bottom
-  qzones.forEach(z=>{const items=tasks.filter(t=>!t.done&&t.q===z);
+  qzones.forEach(z=>{const items=tasksInZone(z);
     const el=document.getElementById('z-'+z);
     if(z==='inbox'&&!items.length){el.innerHTML='<span class="empty">No unsorted tasks.</span>';return;}
     const fut=t=>t.month&&isFut(t.month,t.year);
     [...items.filter(t=>!fut(t)),...items.filter(fut)].forEach(t=>el.appendChild(matrixChip(t)));});
-  ['q1','q3','q4'].forEach(q=>document.getElementById('cnt-'+q).textContent=tasks.filter(t=>!t.done&&t.q===q).length);
-  document.getElementById('cnt-q2').textContent=tasks.filter(t=>!t.done&&baseQ(t.q)==='q2').length;
+  ['q1','q3','q4'].forEach(q=>document.getElementById('cnt-'+q).textContent=tasks.filter(t=>!t.done&&t.quadrant===q).length);
+  document.getElementById('cnt-q2').textContent=tasks.filter(t=>!t.done&&t.quadrant==='q2').length;
   // weeks (current month) 1-5
   for(let w=1;w<=5;w++){const items=tasks.filter(t=>!t.done&&t.week===w&&t.month&&isCur(t.month,t.year)).sort((a,b)=>(a.wrank||0)-(b.wrank||0));
     const el=document.getElementById('z-w'+w);items.forEach(t=>el.appendChild(weekChip(t,false)));
@@ -408,7 +410,7 @@ function render(){
   renderPast();
 }
 function renderPast(){['q1','q2','q3','q4'].forEach(q=>{const el=document.getElementById('p-'+q);el.innerHTML='';
-  tasks.filter(t=>t.done&&baseQ(t.q)===q).sort((a,b)=>(b.completedAt||0)-(a.completedAt||0)).forEach(t=>{
+  tasks.filter(t=>t.done&&t.quadrant===q).sort((a,b)=>(b.completedAt||0)-(a.completedAt||0)).forEach(t=>{
     const r=document.createElement('div');r.className='prow';
     r.innerHTML=`<span class="txt"></span><span class="when">${t.completedAt?fmt(t.completedAt):''}</span><span class="restore">restore</span>`;
     r.querySelector('.txt').textContent=t.text;r.querySelector('.restore').addEventListener('click',()=>toggleDone(t.id));el.appendChild(r);});});}
@@ -432,11 +434,20 @@ async function onUp(e){if(!drag)return;window.removeEventListener('pointermove',
   if(zone[0]==='w'){const w=+zone.slice(1);
     const cnt=tasks.filter(x=>!x.done&&x.week===w&&x.month===CURMONTH&&x.year===CURYEAR&&x.id!==id).length;
     if(cnt>=5){render();return;}
-    t.week=w;t.month=CURMONTH;t.year=CURYEAR;if(t.q==='inbox')t.q='q2c1';
+    t.week=w;t.month=CURMONTH;t.year=CURYEAR;if(t.quadrant==='inbox')t.quadrant='q2';
     const items=tasks.filter(x=>!x.done&&x.week===w&&x.month===CURMONTH&&x.year===CURYEAR&&x.id!==id).sort((a,b)=>(a.wrank||0)-(b.wrank||0));
     const k=idxAt(dz,e.clientX,e.clientY);const prev=items[k-1]?items[k-1].wrank:0,next=items[k]?items[k].wrank:(prev+2000);t.wrank=(prev+next)/2;
-  }else{t.q=zone;const cur=tasks.indexOf(t);tasks.splice(cur,1);
-    const zoneItems=tasks.filter(x=>!x.done&&x.q===zone);const k=idxAt(dz,e.clientX,e.clientY);
+  }else{
+    // Map zone to quadrant and channel
+    if(zone.startsWith('q2c')){
+      t.quadrant='q2';
+      t.channel=getChannel(zone);
+    }else{
+      t.quadrant=zone;
+      t.channel=null;
+    }
+    const cur=tasks.indexOf(t);tasks.splice(cur,1);
+    const zoneItems=tasksInZone(zone);const k=idxAt(dz,e.clientX,e.clientY);
     let at;if(k>=zoneItems.length)at=zoneItems.length?tasks.indexOf(zoneItems[zoneItems.length-1])+1:tasks.length;else at=tasks.indexOf(zoneItems[k]);tasks.splice(at,0,t);}
   await persist();render();}
 
