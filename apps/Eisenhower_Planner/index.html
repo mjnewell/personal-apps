@@ -223,19 +223,22 @@ const db={
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return;
+      // Prepare all tasks and do operations in parallel
+      const ops=[];
       for(let task of t){
         task.user_id=user.id;
         if(!task.id)task.id=crypto.randomUUID();
-        // Map app fields to database fields
         task.sched_month=task.month;
         task.sched_year=task.year;
         if(task.deleted){
-          await sb.from('tasks').delete().eq('id',task.id);
+          ops.push(sb.from('tasks').delete().eq('id',task.id));
         }else{
           delete task.deleted;
-          await sb.from('tasks').upsert(task);
+          ops.push(sb.from('tasks').upsert(task));
         }
       }
+      // Execute all in parallel
+      await Promise.all(ops);
     }catch(e){console.error('Save:',e);}
   },
   async loadCh(){
