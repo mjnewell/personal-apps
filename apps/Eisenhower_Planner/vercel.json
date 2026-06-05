@@ -1,5 +1,7 @@
 {
-  "buildCommand": "echo 'Static HTML only'",
-  "outputDirectory": "public",
-  "installCommand": "echo 'No install needed'"
+  "buildCommand": "npm run build",
+  "outputDirectory": ".",
+  "installCommand": "npm install",
+  "env": {},
+  "regions": ["sfo1"]
 }
