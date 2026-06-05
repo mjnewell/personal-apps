@@ -209,10 +209,10 @@ const db={
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return null;
-      const{data,error}=await sb.from('tasks').select('*').eq('user_id',user.id).order('matrix_rank');
+      const{data,error}=await sb.from('tasks').select('*').eq('user_id',user.id).order('matrix_rank',{nullsFirst:false});
       if(error)throw error;
       return data||null;
-    }catch(e){console.error('Load:',e);return null;}
+    }catch(e){console.error('Load error:',e);return null;}
   },
   async save(t){
     try{
