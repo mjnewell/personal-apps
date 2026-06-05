@@ -11,6 +11,28 @@ document.addEventListener('DOMContentLoaded',async()=>{
   if(!session){showAuth();}
 });
 
+// Migrate localStorage data to Supabase on first load
+async function migrateLocalStorage(){
+  try{
+    const{data:{user}}=await sb.auth.getUser();
+    if(!user)return;
+    
+    const localTasks=localStorage.getItem('tasks');
+    if(localTasks){
+      const tasks=JSON.parse(localTasks);
+      for(let t of tasks){
+        t.user_id=user.id;
+        if(!t.id)t.id=crypto.randomUUID();
+        delete t.deleted;
+        await sb.from('tasks').upsert(t);
+      }
+      console.log('✓ Migrated '+tasks.length+' tasks to Supabase');
+    }
+  }catch(e){
+    console.error('Migration failed:',e);
+  }
+}
+
 function addLogoutBtn(){
   const btn=document.createElement('button');
   btn.textContent='Logout';
@@ -55,6 +77,7 @@ function showAuth(){
       }else{
         const{error:err}=await sb.auth.signInWithPassword({email,password});
         if(err)throw err;
+        await migrateLocalStorage();
         document.getElementById('auth-overlay').remove();
         document.documentElement.style.display='block';
         addLogoutBtn();
