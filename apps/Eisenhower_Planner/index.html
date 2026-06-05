@@ -338,8 +338,8 @@ async function init(){
 }
 async function persist(){await db.save(tasks);}
 async function addTask(t){t=t.trim();if(!t)return;
-  tasks.push({
-    id:uid(),
+  const newTask={
+    id:crypto.randomUUID(),
     text:t,
     quadrant:'inbox',
     channel:null,
@@ -347,11 +347,12 @@ async function addTask(t){t=t.trim();if(!t)return;
     year:null,
     week:null,
     week_rank:null,
-    matrix_rank:null,
+    matrix_rank:(Math.max(...tasks.filter(x=>x.quadrant==='inbox').map(x=>x.matrix_rank||0),0)+1000),
     done:false,
     completedAt:null
-  });
-  await persist();render();}
+  };
+  tasks.push(newTask);
+  persist();render();}
 async function toggleDone(id){const t=tasks.find(x=>x.id===id);if(!t)return;t.done=!t.done;t.completedAt=t.done?Date.now():null;await persist();render();}
 async function removeTask(id){tasks=tasks.filter(x=>x.id!==id);await persist();render();}
 function clampPast(t){if(t.month&&t.year&&isPast(t.month,t.year)){alert("Can't schedule in the past — moved to "+FULL[CURMONTH-1]+" "+CURYEAR+".");t.month=CURMONTH;t.year=CURYEAR;}}
@@ -470,7 +471,7 @@ async function onUp(e){if(!drag)return;window.removeEventListener('pointermove',
     const cur=tasks.indexOf(t);tasks.splice(cur,1);
     const zoneItems=tasksInZone(zone);const k=idxAt(dz,e.clientX,e.clientY);
     let at;if(k>=zoneItems.length)at=zoneItems.length?tasks.indexOf(zoneItems[zoneItems.length-1])+1:tasks.length;else at=tasks.indexOf(zoneItems[k]);tasks.splice(at,0,t);}
-  await persist();render();}
+  persist();render();}
 
 document.querySelectorAll('.chlab').forEach(el=>{el.addEventListener('blur',async()=>{const ch=await db.loadCh();ch[el.dataset.ch]=el.value.trim()||el.dataset.ch;await db.saveCh(ch);});el.addEventListener('keydown',e=>{if(e.key==='Enter')el.blur();});});
 document.getElementById('pastBtn').onclick=()=>document.getElementById('overlay').classList.add('show');
