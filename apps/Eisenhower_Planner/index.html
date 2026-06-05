@@ -297,12 +297,6 @@ document.getElementById('logout-btn').addEventListener('click',async()=>{
 
 checkAuth();
 </script>
-/* ===== DATA LAYER — swap internals for Supabase (methods already async) ===== */
-const db={KEY:'eisen_v8',SKEY:'eisen_ch_v8',_m:[],_s:{},
-  async load(){try{const r=localStorage.getItem(this.KEY);return r?JSON.parse(r):null;}catch{return this._m.length?this._m:null;}},
-  async save(t){this._m=t;try{localStorage.setItem(this.KEY,JSON.stringify(t));}catch{}},                 // SUPABASE upsert
-  async loadCh(){try{const r=localStorage.getItem(this.SKEY);return r?JSON.parse(r):{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};}catch{return this._s;}},
-  async saveCh(s){this._s=s;try{localStorage.setItem(this.SKEY,JSON.stringify(s));}catch{}}};
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
