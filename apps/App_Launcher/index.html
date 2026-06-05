@@ -4,189 +4,201 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Workshop — App Launcher</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{
-  --paper:#f1efe8;--ink:#1c1e22;--muted:#73706a;--faint:#a8a399;
-  --card:#fbfaf6;--line:#e3ddd0;--accent:#d9542b;--accent-soft:#f6e3da;
-  --shadow:0 1px 2px rgba(28,30,34,.05),0 10px 30px rgba(28,30,34,.08);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;color:var(--ink);background:var(--paper);padding:0}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Sans',sans-serif;background:#f1efe8;color:#1c1e22}
+#login-screen{display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;z-index:9999}
+#app-screen{display:none}
 .wrap{max-width:1000px;margin:0 auto;padding:48px 24px}
-header{margin-bottom:28px}
-h1{font-family:'Syne';font-weight:800;font-size:clamp(34px,6vw,58px);margin:10px 0 8px}
-header p{color:var(--muted);font-size:14.5px}
-.composer{display:flex;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:12px;margin-bottom:26px}
-.composer input{flex:1;min-width:150px;background:transparent;border:1px solid var(--line);border-radius:11px;padding:12px 14px;font-size:15px;color:var(--ink)}
-.composer input:focus{outline:none;border-color:var(--accent)}
-.composer button{border-radius:11px;padding:0 20px;font-family:'Syne';font-weight:700;font-size:14px;cursor:pointer}
-#addBtn{background:var(--ink);color:var(--paper);border:none}
-#sectionBtn{background:transparent;border:1px dashed var(--line);color:var(--muted)}
-#board{display:flex;flex-direction:column;gap:4px}
-.chip{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:grab}
-.chip > div{flex:1;min-width:0}
-.title{font-weight:600;font-size:14px}
-.host{font-size:12px;color:var(--faint)}
+h1{margin:20px 0 10px;font-size:32px}
+p{color:#73706a;margin-bottom:20px}
+.composer{display:flex;gap:10px;margin-bottom:26px}
+input{flex:1;padding:12px 14px;border:1px solid #e3ddd0;border-radius:8px;font-size:15px;font-family:'DM Sans'}
+input:focus{outline:none;border-color:#d9542b}
+button{padding:12px 20px;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-family:'DM Sans'}
+#addBtn{background:#1c1e22;color:white}
+#sectionBtn{background:white;border:1px dashed #e3ddd0;color:#73706a}
+#board{display:flex;flex-direction:column;gap:8px}
+.chip{display:flex;gap:10px;align-items:center;background:white;border:1px solid #e3ddd0;border-radius:12px;padding:12px;cursor:pointer}
+.chip-info{flex:1}
+.chip-title{font-weight:600;font-size:15px}
+.chip-host{font-size:12px;color:#73706a}
+.login-box{background:white;border-radius:12px;padding:40px;width:90%;max-width:360px}
+.login-box h1{font-size:24px;margin:0 0 12px;font-family:'DM Sans'}
+.login-box p{margin-bottom:20px;font-size:14px;color:#73706a}
+#login-form{display:flex;flex-direction:column;gap:12px}
+#login-form input{font-family:'DM Sans'}
+#login-form button{width:100%;font-family:'DM Sans'}
+#logout-btn{position:fixed;top:16px;right:16px;padding:8px 16px;background:#d9542b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;z-index:1000;font-family:'DM Sans'}
 </style>
 </head>
 <body>
 
-<div id="login-screen" style="display:flex;position:fixed;inset:0;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;z-index:9999;backdrop-filter:blur(4px)">
-  <div style="background:#f1efe8;border-radius:12px;padding:40px;max-width:360px;width:90%;box-shadow:0 20px 50px rgba(0,0,0,0.3)">
-    <h1 style="margin-bottom:12px;font-size:24px;font-weight:600">Workshop</h1>
-    <p style="color:#73706a;margin-bottom:20px;font-size:14px">Sign in to access your apps</p>
-    <form id="login-form" style="display:flex;flex-direction:column;gap:12px">
-      <input id="login-email" type="email" placeholder="Email" required style="padding:11px 14px;border:1px solid #e3ddd0;border-radius:8px;font-size:14px">
-      <input id="login-password" type="password" placeholder="Password" required style="padding:11px 14px;border:1px solid #e3ddd0;border-radius:8px;font-size:14px">
-      <button type="submit" style="padding:12px;background:#1c1e22;color:white;border:none;border-radius:8px;font-weight:600;cursor:pointer">Sign In</button>
-      <button type="button" id="signup-toggle" style="padding:12px;background:transparent;color:#d9542b;border:1px solid #e3ddd0;border-radius:8px;font-weight:600;cursor:pointer">Create Account</button>
+<div id="login-screen">
+  <div class="login-box">
+    <h1>Workshop</h1>
+    <p>Sign in to access your apps</p>
+    <form id="login-form">
+      <input id="login-email" type="email" placeholder="Email" required>
+      <input id="login-password" type="password" placeholder="Password" required>
+      <button type="submit" id="signin-btn">Sign In</button>
+      <button type="button" id="signup-toggle">Create Account</button>
       <div id="login-error" style="color:#c0492f;font-size:13px;min-height:20px"></div>
     </form>
   </div>
 </div>
 
-<div id="app-screen" style="display:none">
-  <button id="logout-btn" style="position:fixed;top:16px;right:16px;padding:8px 16px;background:#d9542b;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;font-size:12px;z-index:1000">Logout</button>
+<div id="app-screen">
+  <button id="logout-btn">Logout</button>
   <div class="wrap">
-    <header>
-      <h1>App Launcher</h1>
-      <p>Add apps, drop in section dividers, and drag anything up or down to organize.</p>
-    </header>
+    <h1>App Launcher</h1>
+    <p>Add apps, drag to organize.</p>
     <div class="composer">
-      <input id="title" type="text" placeholder="App name" autocomplete="off">
-      <input id="url" type="text" placeholder="https://…" autocomplete="off">
+      <input id="title" type="text" placeholder="App name">
+      <input id="url" type="text" placeholder="https://…">
       <button id="addBtn">Add</button>
-      <button id="sectionBtn">+ Section divider</button>
+      <button id="sectionBtn">+ Section</button>
     </div>
     <div id="board"></div>
   </div>
 </div>
 
 <script>
-const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
-const SUPABASE_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-
+const sb=supabase.createClient('https://avbwykhmzuvtglqmkaqu.supabase.co','sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6');
 let items=[];
-let editingId=null;
 let isSignUp=false;
-const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+let currentUserId=null;
 
-const db={
-  async load(){
-    try{
-      const{data:{user}}=await sb.auth.getUser();
-      if(!user)return null;
-      const{data:apps,error}=await sb.from('launcher_apps').select('*').eq('user_id',user.id).order('order_idx');
-      if(error)throw error;
-      return apps?.map(a=>({...a,type:a.is_section?'header':'app'}))||null;
-    }catch(e){console.error('Load failed:',e);return null;}
-  },
-  async save(list){
-    try{
-      const{data:{user}}=await sb.auth.getUser();
-      if(!user)return;
-      const ops=[];
-      for(let i=0;i<list.length;i++){
-        const item=list[i];
-        item.user_id=user.id;
-        if(!item.id)item.id=crypto.randomUUID();
-        item.order_idx=i;
-        item.is_section=item.type==='header';
-        if(item.deleted){
-          ops.push(sb.from('launcher_apps').delete().eq('id',item.id));
-        }else{
-          delete item.deleted;
-          ops.push(sb.from('launcher_apps').upsert(item));
-        }
+function render(){
+  const board=document.getElementById('board');
+  board.innerHTML='';
+  if(!items.length){
+    board.innerHTML='<div style="padding:50px;text-align:center;color:#73706a">Nothing yet — add an app above ↑</div>';
+    return;
+  }
+  items.forEach((item,idx)=>{
+    const el=document.createElement('div');
+    if(item.type==='header'){
+      el.innerHTML=`<div style="width:100%;padding:10px 0;font-weight:600;margin-top:10px">${item.title}</div>`;
+    }else{
+      el.className='chip';
+      try{
+        const host=new URL(item.url).hostname.replace(/^www\./,'');
+        el.innerHTML=`<div class="chip-info"><div class="chip-title">${item.title}</div><div class="chip-host">${host}</div></div><button onclick="editApp(${idx})" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:#73706a;font-size:12px">edit</button><button onclick="delApp(${idx})" style="background:none;border:none;cursor:pointer;padding:4px 8px;color:#73706a;font-size:12px">delete</button>`;
+        el.onclick=e=>{if(!e.target.closest('button'))window.open(item.url,'_blank');};
+      }catch{
+        el.innerHTML=`<div class="chip-info"><div class="chip-title">${item.title}</div><div class="chip-host" style="color:#c0492f">Invalid URL</div></div>`;
       }
-      await Promise.all(ops);
-    }catch(e){console.error('Save failed:',e);}
+    }
+    board.appendChild(el);
+  });
+}
+
+window.editApp=(idx)=>{
+  const item=items[idx];
+  if(item){
+    document.getElementById('title').value=item.title;
+    document.getElementById('url').value=item.url||'';
   }
 };
 
-async function init(){items=await db.load();render();}
-async function persist(){persist_bg();}
-function persist_bg(){db.save(items);}
+window.delApp=(idx)=>{
+  if(confirm('Delete this app?')){
+    items.splice(idx,1);
+    save();
+    render();
+  }
+};
 
-async function checkAuth(){
-  const{data:{session}}=await sb.auth.getSession();
-  document.getElementById('login-screen').style.display=session?'none':'flex';
-  document.getElementById('app-screen').style.display=session?'block':'none';
-  if(session)init();
+async function save(){
+  if(!currentUserId)return;
+  try{
+    const ops=[];
+    for(let i=0;i<items.length;i++){
+      const item=items[i];
+      item.user_id=currentUserId;
+      item.order_idx=i;
+      item.is_section=item.type==='header';
+      if(!item.id)item.id=crypto.randomUUID();
+      ops.push(sb.from('launcher_apps').upsert(item));
+    }
+    await Promise.all(ops);
+  }catch(e){console.error('Save failed:',e);}
+}
+
+async function load(){
+  if(!currentUserId)return;
+  try{
+    const{data}=await sb.from('launcher_apps').select('*').eq('user_id',currentUserId).order('order_idx');
+    items=data?.map(a=>({...a,type:a.is_section?'header':'app'}))||[];
+    render();
+  }catch(e){console.error('Load failed:',e);}
 }
 
 document.getElementById('login-form').addEventListener('submit',async(e)=>{
   e.preventDefault();
   const email=document.getElementById('login-email').value;
   const password=document.getElementById('login-password').value;
+  const errorEl=document.getElementById('login-error');
+  errorEl.textContent='';
+  
   try{
     if(isSignUp){
       const{error}=await sb.auth.signUp({email,password});
       if(error)throw error;
-      document.getElementById('login-error').textContent='Account created! Sign in now.';
+      errorEl.textContent='✓ Account created! Sign in now.';
       isSignUp=false;
+      document.getElementById('signup-toggle').textContent='Create Account';
     }else{
-      const{error}=await sb.auth.signInWithPassword({email,password});
+      const{error,data}=await sb.auth.signInWithPassword({email,password});
       if(error)throw error;
-      checkAuth();
+      currentUserId=data.user.id;
+      document.getElementById('login-screen').style.display='none';
+      document.getElementById('app-screen').style.display='block';
+      document.getElementById('title').focus();
+      load();
     }
-  }catch(e){document.getElementById('login-error').textContent=e.message;}
+  }catch(e){
+    errorEl.textContent=e.message||'Error';
+  }
 });
 
 document.getElementById('signup-toggle').addEventListener('click',()=>{
   isSignUp=!isSignUp;
   document.getElementById('signup-toggle').textContent=isSignUp?'Back to Sign In':'Create Account';
+  document.getElementById('login-error').textContent='';
 });
 
 document.getElementById('logout-btn').addEventListener('click',async()=>{
   await sb.auth.signOut();
-  location.reload();
+  items=[];
+  currentUserId=null;
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('app-screen').style.display='none';
+  document.getElementById('login-email').value='';
+  document.getElementById('login-password').value='';
+  document.getElementById('login-form').style.display='flex';
 });
 
-const title=document.getElementById('title');
-const url=document.getElementById('url');
-const addBtn=document.getElementById('addBtn');
-
-function render(){
-  const board=document.getElementById('board');
-  board.innerHTML='';
-  if(!items.length){board.innerHTML='<div style="padding:50px;text-align:center;color:var(--faint)">Nothing yet — add an app above ↑</div>';return;}
-  items.forEach(item=>{
-    const el=document.createElement('div');
-    if(item.type==='header'){
-      el.innerHTML=`<div style="display:flex;align-items:center;gap:10px;margin:18px 0 10px"><span style="flex:1;font-weight:700">${item.title}</span><button data-id="${item.id}" data-act="del" style="background:none;border:none;cursor:pointer;color:var(--faint)">×</button></div>`;
-    }else{
-      el.className='chip';
-      el.innerHTML=`<div><div class="title">${item.title}</div><div class="host">${new URL(item.url).hostname.replace(/^www\./,'')}</div></div><button data-id="${item.id}" data-act="edit" style="background:none;border:none;cursor:pointer;color:var(--faint);font-size:12px">edit</button><button data-id="${item.id}" data-act="del" style="background:none;border:none;cursor:pointer;color:var(--faint)">delete</button>`;
-      el.addEventListener('click',e=>{if(!e.target.dataset.act)window.open(item.url,'_blank');});
-    }
-    el.querySelectorAll('[data-act="edit"]').forEach(btn=>btn.addEventListener('click',()=>{editingId=item.id;title.value=item.title;url.value=item.url;addBtn.textContent='Update';}));
-    el.querySelectorAll('[data-act="del"]').forEach(btn=>btn.addEventListener('click',()=>{if(confirm('Remove?')){items=items.filter(x=>x.id!==item.id);persist();render();}}));
-    board.appendChild(el);
-  });
-}
-
-addBtn.addEventListener('click',()=>{
-  const t=title.value.trim();
-  const u=url.value.trim();
-  if(!t||!u)return;
-  if(editingId){const item=items.find(x=>x.id===editingId);if(item){item.title=t;item.url=u}editingId=null;addBtn.textContent='Add';}
-  else items.push({id:uid(),type:'app',title:t,url:u});
-  title.value='';url.value='';title.focus();
-  persist();render();
+document.getElementById('addBtn').addEventListener('click',()=>{
+  const title=document.getElementById('title').value.trim();
+  const url=document.getElementById('url').value.trim();
+  if(!title||!url)return;
+  items.push({id:crypto.randomUUID(),type:'app',title,url});
+  document.getElementById('title').value='';
+  document.getElementById('url').value='';
+  document.getElementById('title').focus();
+  save();
+  render();
 });
 
 document.getElementById('sectionBtn').addEventListener('click',()=>{
-  items.push({id:uid(),type:'header',title:'New section'});
-  persist();render();
+  items.push({id:crypto.randomUUID(),type:'header',title:'New section'});
+  save();
+  render();
 });
-
-checkAuth();
 </script>
 </body>
 </html>
