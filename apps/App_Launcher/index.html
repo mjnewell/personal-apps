@@ -118,6 +118,11 @@
 </div>
 
 <script>
+// Supabase setup FIRST
+const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
+const SUPABASE_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
 /* ===== DATA LAYER — Supabase ===== */
 const db={
   async load(){
@@ -250,16 +255,6 @@ async function onUp(){
 addBtn.addEventListener('click',submitApp);
 document.getElementById('sectionBtn').addEventListener('click',addSection);
 [title,url].forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')submitApp();}));
-init();
-</script>
-</body>
-</html>
-</div>
-
-<script>
-const SUPABASE_URL='https://avbwykhmzuvtglqmkaqu.supabase.co';
-const SUPABASE_KEY='sb_publishable_0Fpu06kWZrWBuX6rQsFNpQ_zw7oxZA6';
-const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
 
 let isSignUp=false;
 
@@ -339,6 +334,7 @@ async function initApp(){
 }
 
 checkAuth();
+initApp();
 </script>
 
 </body>
