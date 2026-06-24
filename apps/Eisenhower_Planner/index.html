@@ -245,9 +245,11 @@ const db={
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
-      const{data:ch,error}=await sb.from('channels').select('*').eq('user_id',user.id).single();
-      if(error)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
-      return{c1:ch?.name1||'Channel 1',c2:ch?.name2||'Channel 2',c3:ch?.name3||'Channel 3'};
+      const{data:rows,error}=await sb.from('channels').select('*').eq('user_id',user.id);
+      if(error||!rows)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
+      const out={c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
+      rows.forEach(r=>{out['c'+r.slot]=r.label||out['c'+r.slot];});
+      return out;
     }catch{return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};}
   },
   async saveCh(s){
