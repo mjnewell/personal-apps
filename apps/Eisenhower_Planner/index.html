@@ -308,6 +308,8 @@ document.getElementById('logout-btn').addEventListener('click',async()=>{
 checkAuth();
 
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const getCurWeek=()=>Math.ceil(new Date().getDate()/7);
+const isOverdue=(t)=>!t.done&&t.week!==null&&isCur(t.month,t.year)&&t.week<getCurWeek();
 const FULL=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const now=new Date(), CURMONTH=now.getMonth()+1, CURYEAR=now.getFullYear();
 const YEARS=[CURYEAR,CURYEAR+1,CURYEAR+2,CURYEAR+3];
@@ -391,7 +393,7 @@ function matrixChip(t){
   return c;
 }
 function weekChip(t,carry){
-  const c=document.createElement('div');c.className='chip wkpill'+(carry?' carrychip':'')+(t.done?' done':'');c.dataset.id=t.id;
+  const c=document.createElement('div');c.className='chip wkpill'+(carry?' carrychip':'')+(t.done?' done':'')+(isOverdue(t)?' overdue':'');c.dataset.id=t.id;
   c.innerHTML=`<span class="dot" data-act="done"></span><span class="txt"></span>`;
   const txt=c.querySelector('.txt');txt.textContent=t.text;
   c.addEventListener('pointerdown',e=>startDrag(e,t.id,c));
@@ -421,11 +423,12 @@ function render(){
     [...items.filter(t=>!fut(t)),...items.filter(fut)].forEach(t=>el.appendChild(matrixChip(t)));});
   ['q1','q3','q4'].forEach(q=>document.getElementById('cnt-'+q).textContent=tasks.filter(t=>!t.done&&t.quadrant===q).length);
   document.getElementById('cnt-q2').textContent=tasks.filter(t=>!t.done&&t.quadrant==='q2').length;
-  // weeks (current month) 1-5
-  for(let w=1;w<=5;w++){const items=tasks.filter(t=>!t.done&&t.week===w&&t.month&&isCur(t.month,t.year)).sort((a,b)=>(a.wrank||0)-(b.wrank||0));
+  // weeks (current month) 1-5 — show ALL tasks (done + not done)
+  for(let w=1;w<=5;w++){const items=tasks.filter(t=>t.week===w&&t.month&&isCur(t.month,t.year)).sort((a,b)=>(a.wrank||0)-(b.wrank||0));
     const el=document.getElementById('z-w'+w);items.forEach(t=>el.appendChild(weekChip(t,false)));
-    for(let n=items.length;n<5;n++){const sl=document.createElement('div');sl.className='slot';sl.textContent=n+1;el.appendChild(sl);}
-    const col=document.querySelector(`.wcol[data-zone="w${w}"]`);col.querySelector('.n').textContent=items.length+'/5';}
+    const active=items.filter(t=>!t.done).length;
+    for(let n=active;n<5;n++){const sl=document.createElement('div');sl.className='slot';sl.textContent=n+1;el.appendChild(sl);}
+    const col=document.querySelector(`.wcol[data-zone="w${w}"]`);col.querySelector('.n').textContent=active+'/5';}
   // carryover — overdue tasks that had a week and were missed
   const over=tasks.filter(t=>!t.done&&t.month&&t.week!==null&&isPast(t.month,t.year)).sort((a,b)=>(b.year*12+b.month)-(a.year*12+a.month));
   const cel=document.getElementById('z-w0');over.forEach(t=>cel.appendChild(weekChip(t,true)));
