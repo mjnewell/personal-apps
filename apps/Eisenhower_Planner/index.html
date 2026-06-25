@@ -256,12 +256,9 @@ const db={
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return;
-      const{data:ch}=await sb.from('channels').select('id').eq('user_id',user.id).single();
-      if(ch){
-        await sb.from('channels').update({name1:s.c1,name2:s.c2,name3:s.c3}).eq('user_id',user.id);
-      }else{
-        await sb.from('channels').insert({user_id:user.id,name1:s.c1,name2:s.c2,name3:s.c3});
-      }
+      const rows=[1,2,3].map(slot=>({user_id:user.id,slot,label:s['c'+slot]||''}));
+      const {error}=await sb.from('channels').upsert(rows);
+      if(error)console.error('SaveCh:',error);
     }catch(e){console.error('SaveCh:',e);}
   }
 };
