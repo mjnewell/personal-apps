@@ -223,21 +223,31 @@ const db={
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return;
-      // Prepare all tasks and do operations in parallel
+      // Build clean rows with ONLY real table columns, so unknown keys
+      // (month/year/wrank/…) can never make PostgREST reject the write.
       const ops=[];
       for(let task of t){
-        task.user_id=user.id;
         if(!task.id)task.id=crypto.randomUUID();
-        task.sched_month=task.month;
-        task.sched_year=task.year;
         if(task.deleted){
           ops.push(sb.from('tasks').delete().eq('id',task.id));
         }else{
-          delete task.deleted;
-          ops.push(sb.from('tasks').upsert(task));
+          const row={
+            id:task.id,
+            user_id:user.id,
+            text:task.text,
+            quadrant:task.quadrant,
+            channel:task.channel??null,
+            sched_month:task.month??null,
+            sched_year:task.year??null,
+            week:task.week??null,
+            week_rank:task.week_rank??null,
+            matrix_rank:task.matrix_rank??null,
+            done:!!task.done,
+            completed_at:task.completed_at??null
+          };
+          ops.push(sb.from('tasks').upsert(row));
         }
       }
-      // Execute all in parallel
       await Promise.all(ops);
     }catch(e){console.error('Save:',e);}
   },
@@ -319,7 +329,7 @@ const isFut =(m,y)=>y>CURYEAR||(y===CURYEAR&&m>CURMONTH);
 
 let tasks=[];
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-const fmt=ts=>new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'});
+const fmt=ts=>ts?new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'';
 const qzones=['inbox','q1','q2c1','q2c2','q2c3','q3','q4'];
 const baseQ=q=>q.startsWith('q2c')?'q2':q;
 const getChannel=z=>{if(z==='q2c1')return 1;if(z==='q2c2')return 2;if(z==='q2c3')return 3;return null;};
@@ -353,21 +363,23 @@ async function addTask(t){t=t.trim();if(!t)return;
     week_rank:null,
     matrix_rank:(Math.max(...tasks.filter(x=>x.quadrant==='inbox').map(x=>x.matrix_rank||0),0)+1000),
     done:false,
-    completedAt:null
+    completed_at:null
   };
   tasks.push(newTask);
   persist();render();}
-async function toggleDone(id){const t=tasks.find(x=>x.id===id);if(!t)return;t.done=!t.done;t.completedAt=t.done?Date.now():null;await persist();render();}
+async function toggleDone(id){const t=tasks.find(x=>x.id===id);if(!t)return;t.done=!t.done;t.completed_at=t.done?new Date().toISOString():null;await persist();render();}
 async function removeTask(id){tasks=tasks.filter(x=>x.id!==id);await persist();render();}
 function clampPast(t){if(t.month&&t.year&&isPast(t.month,t.year)){alert("Can't schedule in the past — moved to "+FULL[CURMONTH-1]+" "+CURYEAR+".");t.month=CURMONTH;t.year=CURYEAR;}}
 async function setMonth(id,m){const t=tasks.find(x=>x.id===id);if(!t)return;t.month=m||null;if(t.month&&!t.year)t.year=CURYEAR;if(!t.month){t.year=null;}clampPast(t);await persist();render();}
 async function setYear(id,y){const t=tasks.find(x=>x.id===id);if(!t)return;t.year=y||null;if(t.year&&!t.month)t.month=CURMONTH;clampPast(t);await persist();render();}
 async function setWeek(id,w){const t=tasks.find(x=>x.id===id);if(!t)return;
   const off=(t.week===w);
-  if(!off){const cnt=tasks.filter(x=>!x.done&&x.week===w&&x.month===(t.month||CURMONTH)&&x.year===(t.year||CURYEAR)&&x.id!==id).length;
+  if(!off){const cnt=tasks.filter(x=>!x.done&&x.week===w&&x.month===CURMONTH&&x.year===CURYEAR&&x.id!==id).length;
     if(cnt>=5){alert('Week '+w+' already holds its top 5.');return;}}
-  t.week=off?null:w;t.wrank=Date.now();
-  if(t.week!==null && !t.month){t.month=CURMONTH;t.year=CURYEAR;}
+  t.week=off?null:w;t.week_rank=Date.now();
+  // Weeks are a current-month concept — assigning one reschedules to this month
+  // (mirrors dragging into a week column), so it stops snapping back to carryover.
+  if(t.week!==null){t.month=CURMONTH;t.year=CURYEAR;}
   if(t.week!==null && t.quadrant==='inbox') t.quadrant='q2';
   await persist();render();}
 
@@ -384,7 +396,7 @@ function matrixChip(t){
   let yr='<select class="yr" data-act="yr"><option value="">Yr</option>'+YEARS.map(y=>`<option value="${y}" ${t.year===y?'selected':''}>'${String(y).slice(2)}</option>`).join('')+'</select>';
   let wk='<span class="wk">';for(let i=1;i<=5;i++)wk+=`<b data-wk="${i}" class="${t.week===i?'on':''}">${i}</b>`;wk+='</span>';
   c.innerHTML=`<span class="txt"></span><div class="ctl"><span class="dot" data-act="done"></span>${mo}${yr}${wk}<span class="when"></span><span class="x" data-act="del">×</span></div>`;
-  c.querySelector('.txt').textContent=t.text;c.querySelector('.when').textContent=fmt(t.createdAt);
+  c.querySelector('.txt').textContent=t.text;c.querySelector('.when').textContent=fmt(t.created_at);
   bindCommon(c,t);
   c.querySelectorAll('[data-wk]').forEach(b=>b.addEventListener('click',e=>{e.stopPropagation();setWeek(t.id,+b.dataset.wk);}));
   const ms=c.querySelector('[data-act="mo"]'),ys=c.querySelector('[data-act="yr"]');
@@ -424,7 +436,7 @@ function render(){
   ['q1','q3','q4'].forEach(q=>document.getElementById('cnt-'+q).textContent=tasks.filter(t=>!t.done&&t.quadrant===q).length);
   document.getElementById('cnt-q2').textContent=tasks.filter(t=>!t.done&&t.quadrant==='q2').length;
   // weeks (current month) 1-5 — show ALL tasks (done + not done)
-  for(let w=1;w<=5;w++){const items=tasks.filter(t=>t.week===w&&t.month&&isCur(t.month,t.year)).sort((a,b)=>(a.wrank||0)-(b.wrank||0));
+  for(let w=1;w<=5;w++){const items=tasks.filter(t=>t.week===w&&t.month&&isCur(t.month,t.year)).sort((a,b)=>(a.week_rank||0)-(b.week_rank||0));
     const el=document.getElementById('z-w'+w);items.forEach(t=>el.appendChild(weekChip(t,false)));
     const active=items.filter(t=>!t.done).length;
     for(let n=active;n<5;n++){const sl=document.createElement('div');sl.className='slot';sl.textContent=n+1;el.appendChild(sl);}
@@ -437,9 +449,9 @@ function render(){
   renderPast();
 }
 function renderPast(){['q1','q2','q3','q4'].forEach(q=>{const el=document.getElementById('p-'+q);el.innerHTML='';
-  tasks.filter(t=>t.done&&t.quadrant===q).sort((a,b)=>(b.completedAt||0)-(a.completedAt||0)).forEach(t=>{
+  tasks.filter(t=>t.done&&t.quadrant===q).sort((a,b)=>new Date(b.completed_at||0)-new Date(a.completed_at||0)).forEach(t=>{
     const r=document.createElement('div');r.className='prow';
-    r.innerHTML=`<span class="txt"></span><span class="when">${t.completedAt?fmt(t.completedAt):''}</span><span class="restore">restore</span>`;
+    r.innerHTML=`<span class="txt"></span><span class="when">${fmt(t.completed_at)}</span><span class="restore">restore</span>`;
     r.querySelector('.txt').textContent=t.text;r.querySelector('.restore').addEventListener('click',()=>toggleDone(t.id));el.appendChild(r);});});}
 
 /* drag (mouse + touch) */
@@ -462,8 +474,8 @@ async function onUp(e){if(!drag)return;window.removeEventListener('pointermove',
     const cnt=tasks.filter(x=>!x.done&&x.week===w&&x.month===CURMONTH&&x.year===CURYEAR&&x.id!==id).length;
     if(cnt>=5){render();return;}
     t.week=w;t.month=CURMONTH;t.year=CURYEAR;if(t.quadrant==='inbox')t.quadrant='q2';
-    const items=tasks.filter(x=>!x.done&&x.week===w&&x.month===CURMONTH&&x.year===CURYEAR&&x.id!==id).sort((a,b)=>(a.wrank||0)-(b.wrank||0));
-    const k=idxAt(dz,e.clientX,e.clientY);const prev=items[k-1]?items[k-1].wrank:0,next=items[k]?items[k].wrank:(prev+2000);t.wrank=(prev+next)/2;
+    const items=tasks.filter(x=>!x.done&&x.week===w&&x.month===CURMONTH&&x.year===CURYEAR&&x.id!==id).sort((a,b)=>(a.week_rank||0)-(b.week_rank||0));
+    const k=idxAt(dz,e.clientX,e.clientY);const prev=items[k-1]?items[k-1].week_rank:0,next=items[k]?items[k].week_rank:(prev+2000);t.week_rank=(prev+next)/2;
   }else{
     // Map zone to quadrant and channel
     if(zone.startsWith('q2c')){
