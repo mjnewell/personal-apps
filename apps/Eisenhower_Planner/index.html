@@ -70,7 +70,7 @@
   .list{display:flex;flex-direction:column;gap:6px;min-height:60px;border-radius:9px;transition:background .12s}
   .q .list{flex-direction:row;flex-wrap:wrap;align-content:flex-start;gap:7px}
   .dz.over{background:rgba(35,33,28,.06)}
-  .channels{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}
+  .channels{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
   .channel{background:rgba(255,255,255,.55);border:1px solid var(--plan-line);border-radius:11px;padding:9px;min-height:250px}
   .channel .list{min-height:200px}
   .chlab{font-size:11.5px;font-weight:700;color:var(--plan);background:transparent;border:none;border-bottom:1px dashed transparent;width:100%;font-family:'DM Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin-bottom:8px;padding:2px 0}
@@ -179,6 +179,7 @@
         <div class="channel"><input class="chlab" data-ch="c1" value="Channel 1"><div class="list dz" data-zone="q2c1" id="z-q2c1"></div></div>
         <div class="channel"><input class="chlab" data-ch="c2" value="Channel 2"><div class="list dz" data-zone="q2c2" id="z-q2c2"></div></div>
         <div class="channel"><input class="chlab" data-ch="c3" value="Channel 3"><div class="list dz" data-zone="q2c3" id="z-q2c3"></div></div>
+        <div class="channel"><input class="chlab" data-ch="c4" value="Channel 4"><div class="list dz" data-zone="q2c4" id="z-q2c4"></div></div>
       </div></div>
     <div class="axis-y" style="grid-row:3"><span>Not Important</span></div>
     <div class="q q3" style="grid-row:3" data-pos="Urgent · Not Important"><span class="cnt" id="cnt-q3">0</span><h2><span class="num">3</span> Delegate</h2><div class="verb">Hand it off</div><div class="list dz" data-zone="q3" id="z-q3"></div></div>
@@ -254,19 +255,19 @@ const db={
   async loadCh(){
     try{
       const{data:{user}}=await sb.auth.getUser();
-      if(!user)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
+      if(!user)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3',c4:'Channel 4'};
       const{data:rows,error}=await sb.from('channels').select('*').eq('user_id',user.id);
-      if(error||!rows)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
-      const out={c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};
+      if(error||!rows)return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3',c4:'Channel 4'};
+      const out={c1:'Channel 1',c2:'Channel 2',c3:'Channel 3',c4:'Channel 4'};
       rows.forEach(r=>{out['c'+r.slot]=r.label||out['c'+r.slot];});
       return out;
-    }catch{return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3'};}
+    }catch{return{c1:'Channel 1',c2:'Channel 2',c3:'Channel 3',c4:'Channel 4'};}
   },
   async saveCh(s){
     try{
       const{data:{user}}=await sb.auth.getUser();
       if(!user)return;
-      const rows=[1,2,3].map(slot=>({user_id:user.id,slot,label:s['c'+slot]||''}));
+      const rows=[1,2,3,4].map(slot=>({user_id:user.id,slot,label:s['c'+slot]||''}));
       const {error}=await sb.from('channels').upsert(rows);
       if(error)console.error('SaveCh:',error);
     }catch(e){console.error('SaveCh:',e);}
@@ -330,9 +331,9 @@ const isFut =(m,y)=>y>CURYEAR||(y===CURYEAR&&m>CURMONTH);
 let tasks=[];
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
 const fmt=ts=>ts?new Date(ts).toLocaleDateString(undefined,{month:'short',day:'numeric'}):'';
-const qzones=['inbox','q1','q2c1','q2c2','q2c3','q3','q4'];
+const qzones=['inbox','q1','q2c1','q2c2','q2c3','q2c4','q3','q4'];
 const baseQ=q=>q.startsWith('q2c')?'q2':q;
-const getChannel=z=>{if(z==='q2c1')return 1;if(z==='q2c2')return 2;if(z==='q2c3')return 3;return null;};
+const getChannel=z=>{if(z==='q2c1')return 1;if(z==='q2c2')return 2;if(z==='q2c3')return 3;if(z==='q2c4')return 4;return null;};
 const tasksInZone=(z)=>tasks.filter(t=>!t.done&&(z.startsWith('q2c')?t.quadrant==='q2'&&t.channel===getChannel(z):t.quadrant===z));
 
 function seed(){return [
