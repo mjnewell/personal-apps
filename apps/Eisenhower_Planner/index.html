@@ -335,7 +335,7 @@ const fmt=ts=>ts?new Date(ts).toLocaleDateString(undefined,{month:'short',day:'n
 const qzones=['inbox','q1','q2c1','q2c2','q2c3','q2c4','q2c5','q3','q4'];
 const baseQ=q=>q.startsWith('q2c')?'q2':q;
 const getChannel=z=>{const m=/^q2c([1-5])$/.exec(z);return m?Number(m[1]):null;};
-const tasksInZone=(z)=>tasks.filter(t=>!t.done&&(z.startsWith('q2c')?t.quadrant==='q2'&&t.channel===getChannel(z):t.quadrant===z));
+const tasksInZone=(z)=>tasks.filter(t=>!t.done&&(z.startsWith('q2c')?t.quadrant==='q2'&&(t.channel??1)===getChannel(z):t.quadrant===z));
 
 function seed(){return [
   {id:uid(),text:'Finish Q2 board deck',q:'q1',month:CURMONTH,year:CURYEAR,week:1,done:false,createdAt:Date.now(),completedAt:null},
@@ -475,7 +475,7 @@ async function onUp(e){if(!drag)return;window.removeEventListener('pointermove',
   if(zone[0]==='w'){const w=+zone.slice(1);
     const cnt=tasks.filter(x=>!x.done&&x.week===w&&x.month===CURMONTH&&x.year===CURYEAR&&x.id!==id).length;
     if(cnt>=5){render();return;}
-    t.week=w;t.month=CURMONTH;t.year=CURYEAR;if(t.quadrant==='inbox')t.quadrant='q2';
+    t.week=w;t.month=CURMONTH;t.year=CURYEAR; // an inbox task stays in the inbox until it's dragged into a quadrant or channel
     const items=tasks.filter(x=>!x.done&&x.week===w&&x.month===CURMONTH&&x.year===CURYEAR&&x.id!==id).sort((a,b)=>(a.week_rank||0)-(b.week_rank||0));
     const k=idxAt(dz,e.clientX,e.clientY);const prev=items[k-1]?items[k-1].week_rank:0,next=items[k]?items[k].week_rank:(prev+2000);t.week_rank=(prev+next)/2;
   }else{
